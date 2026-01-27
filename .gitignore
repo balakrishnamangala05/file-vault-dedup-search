@@ -1,0 +1,46 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+ENV/
+.venv
+.env
+*.log
+db.sqlite3
+db.sqlite3-journal
+backend/media/
+backend/storage/
+
+# Django
+*.pyc
+__pycache__/
+local_settings.py
+
+# Node
+node_modules/
+dist/
+.npm
+.pnpm-debug.log
+
+# Docker
+.dockerignore
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Build
+build/
+*.egg-info/
