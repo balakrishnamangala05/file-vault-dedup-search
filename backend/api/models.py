@@ -1,0 +1,29 @@
+from django.db import models
+
+
+class StoredFile(models.Model):
+    sha256 = models.CharField(max_length=64, unique=True, db_index=True)
+    size_bytes = models.BigIntegerField()
+    storage_path = models.TextField()
+    ref_count = models.IntegerField(default=0)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = "api_storedfile"
+        ordering = ["-created_at"]
+
+    def __str__(self):
+        return f"StoredFile({self.sha256[:16]}...)"
+
+
+class FileUpload(models.Model):
+    original_name = models.CharField(max_length=255)
+    stored_file = models.ForeignKey(StoredFile, on_delete=models.CASCADE, related_name="uploads")
+    uploaded_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = "api_fileupload"
+        ordering = ["-uploaded_at"]
+
+    def __str__(self):
+        return f"FileUpload({self.original_name})"
