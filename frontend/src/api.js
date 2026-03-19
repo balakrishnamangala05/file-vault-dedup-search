@@ -121,12 +121,17 @@ export function uploadFile(file, onProgress) {
   });
 }
 
-export async function listUploads(q = "", page = 1, pageSize = 10, order = "-uploaded_at") {
+export async function listUploads(q = "", page = 1, pageSize = 10, order = "-uploaded_at", filters = {}) {
   const params = new URLSearchParams();
   if (q) params.set("q", q);
   params.set("page", String(page));
   params.set("page_size", String(pageSize));
   params.set("order", order);
+  if (filters.file_type)   params.set("file_type", filters.file_type);
+  if (filters.date_from)   params.set("date_from", filters.date_from);
+  if (filters.date_to)     params.set("date_to", filters.date_to);
+  if (filters.size_min)    params.set("size_min", String(filters.size_min));
+  if (filters.size_max)    params.set("size_max", String(filters.size_max));
   const url = `${BASE_URL}/files/?${params.toString()}`;
   const res = await apiFetch(url);
 
