@@ -1,6 +1,18 @@
 from django.db import models
 
 
+class Tag(models.Model):
+    name = models.CharField(max_length=50, unique=True)
+    color = models.CharField(max_length=7, default="#3b82f6")
+
+    class Meta:
+        db_table = "api_tag"
+        ordering = ["name"]
+
+    def __str__(self):
+        return self.name
+
+
 class StoredFile(models.Model):
     sha256 = models.CharField(max_length=64, unique=True, db_index=True)
     size_bytes = models.BigIntegerField()
