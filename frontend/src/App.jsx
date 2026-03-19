@@ -21,6 +21,8 @@ import {
   FiInbox,
   FiEye,
   FiX,
+  FiFilter,
+  FiSliders,
 } from "react-icons/fi";
 import "./App.css";
 
@@ -527,7 +529,69 @@ function App() {
               </option>
             ))}
           </select>
+          <button
+            className={`btn btn-ghost btn-sm${showFilters ? " active" : ""}`}
+            onClick={() => setShowFilters((v) => !v)}
+          >
+            <FiSliders size={16} />
+            Filters
+            {(filterType || filterDateFrom || filterDateTo || filterSizeMin || filterSizeMax) && (
+              <span className="tab-badge">●</span>
+            )}
+          </button>
         </div>
+
+        {showFilters && (
+          <div className="filter-panel">
+            <div className="filter-row">
+              <div className="filter-group">
+                <label>File Type</label>
+                <select value={filterType} onChange={(e) => setFilterType(e.target.value)}>
+                  <option value="">All types</option>
+                  <option value="image">Images</option>
+                  <option value="document">Documents</option>
+                  <option value="video">Videos</option>
+                  <option value="audio">Audio</option>
+                  <option value="archive">Archives</option>
+                  <option value="code">Code / Text</option>
+                  <option value="other">Other</option>
+                </select>
+              </div>
+              <div className="filter-group">
+                <label>From date</label>
+                <input type="date" value={filterDateFrom} onChange={(e) => setFilterDateFrom(e.target.value)} />
+              </div>
+              <div className="filter-group">
+                <label>To date</label>
+                <input type="date" value={filterDateTo} onChange={(e) => setFilterDateTo(e.target.value)} />
+              </div>
+              <div className="filter-group">
+                <label>Min size</label>
+                <div style={{ display: "flex", gap: "0.4rem" }}>
+                  <input type="number" min="0" placeholder="0" value={filterSizeMin} onChange={(e) => setFilterSizeMin(e.target.value)} style={{ width: 80 }} />
+                  <select value={filterSizeUnit} onChange={(e) => setFilterSizeUnit(e.target.value)}>
+                    <option>KB</option><option>MB</option><option>GB</option>
+                  </select>
+                </div>
+              </div>
+              <div className="filter-group">
+                <label>Max size</label>
+                <div style={{ display: "flex", gap: "0.4rem" }}>
+                  <input type="number" min="0" placeholder="∞" value={filterSizeMax} onChange={(e) => setFilterSizeMax(e.target.value)} style={{ width: 80 }} />
+                  <select value={filterSizeUnit} onChange={(e) => setFilterSizeUnit(e.target.value)}>
+                    <option>KB</option><option>MB</option><option>GB</option>
+                  </select>
+                </div>
+              </div>
+              <button className="btn btn-ghost btn-sm" style={{ alignSelf: "flex-end" }} onClick={() => {
+                setFilterType(""); setFilterDateFrom(""); setFilterDateTo("");
+                setFilterSizeMin(""); setFilterSizeMax("");
+              }}>
+                <FiX size={14} /> Clear
+              </button>
+            </div>
+          </div>
+        )}
 
         {error && (
           <div className="alert alert-error">
