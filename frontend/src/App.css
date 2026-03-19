@@ -559,6 +559,54 @@ body {
 }
 .app-header { justify-content: space-between; }
 
+/* ── Advanced Filters Panel ──────────────────────────── */
+.filter-panel {
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 1rem 1.25rem;
+  margin-bottom: 1rem;
+}
+.filter-row {
+  display: flex;
+  gap: 1rem;
+  align-items: flex-start;
+  flex-wrap: wrap;
+}
+.filter-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+.filter-group label {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.filter-group select,
+.filter-group input[type="date"],
+.filter-group input[type="number"] {
+  background: var(--bg-primary);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  color: var(--text-primary);
+  font-size: 0.85rem;
+  font-family: var(--font-sans);
+  padding: 0.4rem 0.6rem;
+}
+.filter-group select:focus,
+.filter-group input:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+.btn.active {
+  color: var(--accent);
+  border-color: var(--accent);
+  background: rgba(59,130,246,0.08);
+}
+
 /* ── Bulk Action Bar ─────────────────────────────────── */
 .bulk-bar {
   display: flex;
