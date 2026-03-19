@@ -308,6 +308,11 @@ function App() {
           </h1>
           <span className="tagline">Secure storage with SHA-256 deduplication</span>
         </div>
+        {isAuthenticated && (
+          <button className="btn btn-ghost btn-sm" onClick={handleLogout} title="Sign out">
+            <FiX size={16} /> Sign out
+          </button>
+        )}
       </header>
 
       <main className="app-main">
