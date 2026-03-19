@@ -1,5 +1,6 @@
 import hashlib
 import io
+import mimetypes
 import os
 import zipfile
 from django.conf import settings
@@ -9,6 +10,38 @@ from rest_framework.response import Response
 from rest_framework import status
 from .models import StoredFile, FileUpload
 from .serializers import FileUploadSerializer, StoredFileFlatSerializer, StoredFileWithUploadsSerializer
+
+
+DOCUMENT_MIMES = {
+    "application/pdf", "application/msword",
+    "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+    "application/vnd.ms-excel",
+    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    "application/vnd.ms-powerpoint",
+    "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+}
+ARCHIVE_MIMES = {
+    "application/zip", "application/x-tar", "application/gzip",
+    "application/x-7z-compressed", "application/x-rar-compressed",
+    "application/x-bzip2",
+}
+
+def get_file_category(mime_type):
+    if not mime_type:
+        return "other"
+    if mime_type.startswith("image/"):
+        return "image"
+    if mime_type.startswith("video/"):
+        return "video"
+    if mime_type.startswith("audio/"):
+        return "audio"
+    if mime_type in DOCUMENT_MIMES:
+        return "document"
+    if mime_type in ARCHIVE_MIMES:
+        return "archive"
+    if mime_type.startswith("text/"):
+        return "code"
+    return "other"
 
 
 def compute_sha256_and_save(uploaded_file):
@@ -43,12 +76,16 @@ class UploadFileView(APIView):
 
         sha256, size_bytes, storage_path = compute_sha256_and_save(uploaded_file)
 
+        mime_type, _ = mimetypes.guess_type(uploaded_file.name)
+        mime_type = mime_type or "application/octet-stream"
+
         stored, created = StoredFile.objects.get_or_create(
             sha256=sha256,
             defaults={
                 "size_bytes": size_bytes,
                 "storage_path": storage_path,
-                "ref_count": 1,  # Start at 1 for new files
+                "mime_type": mime_type,
+                "ref_count": 1,
             }
         )
 
