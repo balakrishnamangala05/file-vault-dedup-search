@@ -169,6 +169,44 @@ function App() {
     }
   };
 
+  const handleLogin = async (e) => {
+    e.preventDefault();
+    setAuthError("");
+    setAuthLoading(true);
+    const username = e.target.username.value.trim();
+    const password = e.target.password.value;
+    try {
+      await login(username, password);
+      setIsAuthenticated(true);
+    } catch (err) {
+      setAuthError(err.message);
+    } finally {
+      setAuthLoading(false);
+    }
+  };
+
+  const handleRegister = async (e) => {
+    e.preventDefault();
+    setAuthError("");
+    setAuthLoading(true);
+    const username = e.target.username.value.trim();
+    const password = e.target.password.value;
+    try {
+      await register(username, password);
+      setIsAuthenticated(true);
+    } catch (err) {
+      setAuthError(err.message);
+    } finally {
+      setAuthLoading(false);
+    }
+  };
+
+  const handleLogout = () => {
+    logout();
+    setIsAuthenticated(false);
+    setSelectedIds(new Set());
+  };
+
   const toggleSelect = (id) => {
     setSelectedIds((prev) => {
       const next = new Set(prev);
