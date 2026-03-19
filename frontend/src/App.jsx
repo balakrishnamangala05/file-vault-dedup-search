@@ -526,7 +526,7 @@ function App() {
                 ))
               ) : files.length === 0 ? (
                 <tr>
-                  <td colSpan="6">
+                  <td colSpan="7">
                     <div className="empty-state">
                       <div className="empty-icon"><FiInbox /></div>
                       <p>{searchQuery ? "No files match your search." : "No files uploaded yet."}</p>
