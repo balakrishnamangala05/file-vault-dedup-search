@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
-import { uploadFile, listUploads, deleteFile, getStats, getDuplicates, bulkDelete, bulkDownloadZip } from "./api";
+import { uploadFile, listUploads, deleteFile, getStats, getDuplicates, bulkDelete, bulkDownloadZip, login, register, logout } from "./api";
 import {
   FiUpload,
   FiSearch,
