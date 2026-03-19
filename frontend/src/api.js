@@ -30,7 +30,7 @@ async function apiFetch(url, options = {}) {
     } catch {
       localStorage.removeItem("access_token");
       localStorage.removeItem("refresh_token");
-      window.location.reload();
+      throw new Error("Session expired. Please log in again.");
     }
   }
   return res;
