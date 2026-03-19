@@ -90,6 +90,7 @@ function App() {
   }, []);
 
   const loadFiles = useCallback(async () => {
+    if (!isAuthenticated) return;
     try {
       setLoading(true);
       const data = await listUploads(searchQuery, page, pageSize, order);
@@ -104,15 +105,18 @@ function App() {
     } finally {
       setLoading(false);
     }
-  }, [searchQuery, page, pageSize, order]);
+  }, [searchQuery, page, pageSize, order, isAuthenticated]);
+
 
   useEffect(() => {
+    if (!isAuthenticated) return;
     loadStats();
-  }, [loadStats]);
+  }, [loadStats, isAuthenticated]);
 
   useEffect(() => {
+    if (!isAuthenticated) return;
     if (activeTab === "duplicates") loadDuplicates();
-  }, [activeTab, loadDuplicates]);
+  }, [activeTab, loadDuplicates, isAuthenticated]);
 
   useEffect(() => {
     setPage(1);
