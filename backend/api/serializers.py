@@ -14,9 +14,15 @@ class FileUploadSerializer(serializers.ModelSerializer):
 
 
 class StoredFileFlatSerializer(serializers.ModelSerializer):
+    file_category = serializers.SerializerMethodField()
+
     class Meta:
         model = StoredFile
-        fields = ["id", "sha256", "size_bytes", "storage_path", "ref_count", "created_at"]
+        fields = ["id", "sha256", "size_bytes", "storage_path", "mime_type", "file_category", "ref_count", "created_at"]
+
+    def get_file_category(self, obj):
+        from .views import get_file_category
+        return get_file_category(obj.mime_type)
 
 
 class StoredFileWithUploadsSerializer(serializers.ModelSerializer):
