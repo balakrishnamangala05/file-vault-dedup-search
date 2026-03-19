@@ -128,7 +128,7 @@ export async function listUploads(q = "", page = 1, pageSize = 10, order = "-upl
   params.set("page_size", String(pageSize));
   params.set("order", order);
   const url = `${BASE_URL}/files/?${params.toString()}`;
-  const res = await fetch(url);
+  const res = await apiFetch(url);
 
   const contentType = res.headers.get("content-type") || "";
   const isJson = contentType.includes("application/json");
@@ -159,7 +159,7 @@ export async function listUploads(q = "", page = 1, pageSize = 10, order = "-upl
 }
 
 export async function getStats() {
-  const res = await fetch(`${BASE_URL}/stats/`);
+  const res = await apiFetch(`${BASE_URL}/stats/`);
   const contentType = res.headers.get("content-type") || "";
   const isJson = contentType.includes("application/json");
   if (!res.ok) {
@@ -177,7 +177,7 @@ export async function getStats() {
 }
 
 export async function bulkDelete(ids) {
-  const res = await fetch(`${BASE_URL}/files/bulk-delete/`, {
+  const res = await apiFetch(`${BASE_URL}/files/bulk-delete/`, {
     method: "DELETE",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ ids }),
@@ -187,7 +187,7 @@ export async function bulkDelete(ids) {
 }
 
 export async function bulkDownloadZip(ids) {
-  const res = await fetch(`${BASE_URL}/files/download-zip/`, {
+  const res = await apiFetch(`${BASE_URL}/files/download-zip/`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ ids }),
@@ -203,14 +203,14 @@ export async function bulkDownloadZip(ids) {
 }
 
 export async function getDuplicates() {
-  const res = await fetch(`${BASE_URL}/duplicates/`);
+  const res = await apiFetch(`${BASE_URL}/duplicates/`);
   if (!res.ok) throw new Error(`Failed to load duplicates: ${res.status}`);
   return res.json();
 }
 
 export async function deleteFile(uploadId) {
-  const res = await fetch(`${BASE_URL}/files/${uploadId}/`, {
-    method: "DELETE"
+  const res = await apiFetch(`${BASE_URL}/files/${uploadId}/`, {
+    method: "DELETE",
   });
 
   const contentType = res.headers.get("content-type") || "";
