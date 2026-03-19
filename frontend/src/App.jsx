@@ -101,11 +101,20 @@ function App() {
     }
   }, []);
 
+  const unitMultiplier = { KB: 1024, MB: 1024 ** 2, GB: 1024 ** 3 };
+
   const loadFiles = useCallback(async () => {
     if (!isAuthenticated) return;
     try {
       setLoading(true);
-      const data = await listUploads(searchQuery, page, pageSize, order);
+      const filters = {
+        file_type: filterType,
+        date_from: filterDateFrom,
+        date_to: filterDateTo,
+        size_min: filterSizeMin ? Math.round(filterSizeMin * unitMultiplier[filterSizeUnit]) : "",
+        size_max: filterSizeMax ? Math.round(filterSizeMax * unitMultiplier[filterSizeUnit]) : "",
+      };
+      const data = await listUploads(searchQuery, page, pageSize, order, filters);
       setFiles(data.results);
       setTotalCount(data.count);
       setTotalPages(data.total_pages);
@@ -117,7 +126,7 @@ function App() {
     } finally {
       setLoading(false);
     }
-  }, [searchQuery, page, pageSize, order, isAuthenticated]);
+  }, [searchQuery, page, pageSize, order, isAuthenticated, filterType, filterDateFrom, filterDateTo, filterSizeMin, filterSizeMax, filterSizeUnit]);
 
 
   useEffect(() => {
