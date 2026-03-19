@@ -6,6 +6,12 @@ import {
   FiDownload,
   FiTrash2,
   FiFile,
+  FiFileText,
+  FiImage,
+  FiVideo,
+  FiMusic,
+  FiArchive,
+  FiCode,
   FiCopy,
   FiDatabase,
   FiChevronLeft,
@@ -15,7 +21,6 @@ import {
   FiInbox,
   FiEye,
   FiX,
-  FiFileText,
 } from "react-icons/fi";
 import "./App.css";
 
