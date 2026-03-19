@@ -8,8 +8,8 @@ from django.http import FileResponse, Http404, HttpResponse
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
-from .models import StoredFile, FileUpload
-from .serializers import FileUploadSerializer, StoredFileFlatSerializer, StoredFileWithUploadsSerializer
+from .models import StoredFile, FileUpload, Tag
+from .serializers import FileUploadSerializer, StoredFileFlatSerializer, StoredFileWithUploadsSerializer, TagSerializer
 
 
 DOCUMENT_MIMES = {
@@ -194,6 +194,51 @@ class DuplicatesView(APIView):
     def get(self, request):
         dupes = StoredFile.objects.filter(ref_count__gt=1).prefetch_related("uploads").order_by("-ref_count")
         return Response(StoredFileWithUploadsSerializer(dupes, many=True).data)
+
+
+class TagView(APIView):
+    def get(self, request):
+        tags = Tag.objects.all()
+        return Response(TagSerializer(tags, many=True).data)
+
+    def post(self, request):
+        name = request.data.get("name", "").strip()
+        color = request.data.get("color", "#3b82f6").strip()
+        if not name:
+            return Response({"error": "Tag name is required"}, status=status.HTTP_400_BAD_REQUEST)
+        if Tag.objects.filter(name__iexact=name).exists():
+            return Response({"error": "Tag already exists"}, status=status.HTTP_400_BAD_REQUEST)
+        tag = Tag.objects.create(name=name, color=color)
+        return Response(TagSerializer(tag).data, status=status.HTTP_201_CREATED)
+
+    def delete(self, request, tag_id):
+        try:
+            tag = Tag.objects.get(id=tag_id)
+            tag.delete()
+            return Response({"message": "Tag deleted"}, status=status.HTTP_200_OK)
+        except Tag.DoesNotExist:
+            return Response({"error": "Tag not found"}, status=status.HTTP_404_NOT_FOUND)
+
+
+class FileTagView(APIView):
+    def post(self, request, upload_id):
+        try:
+            upload = FileUpload.objects.get(id=upload_id)
+            tag_id = request.data.get("tag_id")
+            tag = Tag.objects.get(id=tag_id)
+            upload.tags.add(tag)
+            return Response(FileUploadSerializer(upload).data)
+        except (FileUpload.DoesNotExist, Tag.DoesNotExist) as e:
+            return Response({"error": str(e)}, status=status.HTTP_404_NOT_FOUND)
+
+    def delete(self, request, upload_id, tag_id):
+        try:
+            upload = FileUpload.objects.get(id=upload_id)
+            tag = Tag.objects.get(id=tag_id)
+            upload.tags.remove(tag)
+            return Response({"message": "Tag removed"}, status=status.HTTP_200_OK)
+        except (FileUpload.DoesNotExist, Tag.DoesNotExist) as e:
+            return Response({"error": str(e)}, status=status.HTTP_404_NOT_FOUND)
 
 
 class BulkDeleteView(APIView):
