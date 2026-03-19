@@ -298,6 +298,65 @@ function App() {
     return Math.round((bytes / Math.pow(k, i)) * 100) / 100 + " " + sizes[i];
   };
 
+  if (!isAuthenticated) {
+    return (
+      <div className="auth-page">
+        <div className="auth-card">
+          <div className="auth-logo">
+            <FiDatabase size={32} />
+            <span>File Vault</span>
+          </div>
+          <div className="auth-tabs">
+            <button
+              className={`auth-tab-btn${authTab === "login" ? " active" : ""}`}
+              onClick={() => { setAuthTab("login"); setAuthError(""); }}
+            >
+              Sign in
+            </button>
+            <button
+              className={`auth-tab-btn${authTab === "register" ? " active" : ""}`}
+              onClick={() => { setAuthTab("register"); setAuthError(""); }}
+            >
+              Register
+            </button>
+          </div>
+
+          {authTab === "login" ? (
+            <form className="auth-form" onSubmit={handleLogin}>
+              <div className="form-group">
+                <label>Username</label>
+                <input name="username" type="text" placeholder="Enter username" required autoFocus />
+              </div>
+              <div className="form-group">
+                <label>Password</label>
+                <input name="password" type="password" placeholder="Enter password" required />
+              </div>
+              {authError && <div className="auth-error">{authError}</div>}
+              <button className="btn btn-primary" type="submit" disabled={authLoading}>
+                {authLoading ? "Signing in…" : "Sign in"}
+              </button>
+            </form>
+          ) : (
+            <form className="auth-form" onSubmit={handleRegister}>
+              <div className="form-group">
+                <label>Username</label>
+                <input name="username" type="text" placeholder="Choose a username" required autoFocus />
+              </div>
+              <div className="form-group">
+                <label>Password</label>
+                <input name="password" type="password" placeholder="At least 6 characters" required />
+              </div>
+              {authError && <div className="auth-error">{authError}</div>}
+              <button className="btn btn-primary" type="submit" disabled={authLoading}>
+                {authLoading ? "Creating account…" : "Create account"}
+              </button>
+            </form>
+          )}
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="app">
       <header className="app-header">
