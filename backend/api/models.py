@@ -32,6 +32,7 @@ class StoredFile(models.Model):
 class FileUpload(models.Model):
     original_name = models.CharField(max_length=255)
     stored_file = models.ForeignKey(StoredFile, on_delete=models.CASCADE, related_name="uploads")
+    tags = models.ManyToManyField(Tag, blank=True, related_name="uploads")
     uploaded_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
