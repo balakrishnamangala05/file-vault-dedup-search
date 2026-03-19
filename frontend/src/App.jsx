@@ -112,7 +112,12 @@ function App() {
 
   useEffect(() => {
     setPage(1);
+    setSelectedIds(new Set());
   }, [searchQuery, order, pageSize]);
+
+  useEffect(() => {
+    setSelectedIds(new Set());
+  }, [page]);
 
   useEffect(() => {
     loadFiles();
