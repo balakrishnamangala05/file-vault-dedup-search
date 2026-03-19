@@ -124,6 +124,41 @@ class ListFilesView(APIView):
             if q:
                 uploads = uploads.filter(original_name__icontains=q)
 
+            file_type = request.query_params.get("file_type", "").strip()
+            if file_type:
+                matching_mimes = [
+                    m for m in (
+                        list(DOCUMENT_MIMES) if file_type == "document" else
+                        list(ARCHIVE_MIMES) if file_type == "archive" else []
+                    )
+                ]
+                if file_type in ("image", "video", "audio", "code"):
+                    prefix_map = {"image": "image/", "video": "video/", "audio": "audio/", "code": "text/"}
+                    uploads = uploads.filter(stored_file__mime_type__startswith=prefix_map[file_type])
+                elif matching_mimes:
+                    uploads = uploads.filter(stored_file__mime_type__in=matching_mimes)
+                elif file_type == "other":
+                    all_known = list(DOCUMENT_MIMES) + list(ARCHIVE_MIMES)
+                    uploads = uploads.exclude(stored_file__mime_type__startswith="image/") \
+                                     .exclude(stored_file__mime_type__startswith="video/") \
+                                     .exclude(stored_file__mime_type__startswith="audio/") \
+                                     .exclude(stored_file__mime_type__startswith="text/") \
+                                     .exclude(stored_file__mime_type__in=all_known)
+
+            date_from = request.query_params.get("date_from", "").strip()
+            date_to = request.query_params.get("date_to", "").strip()
+            if date_from:
+                uploads = uploads.filter(uploaded_at__date__gte=date_from)
+            if date_to:
+                uploads = uploads.filter(uploaded_at__date__lte=date_to)
+
+            size_min = request.query_params.get("size_min", "").strip()
+            size_max = request.query_params.get("size_max", "").strip()
+            if size_min:
+                uploads = uploads.filter(stored_file__size_bytes__gte=int(size_min))
+            if size_max:
+                uploads = uploads.filter(stored_file__size_bytes__lte=int(size_max))
+
             total = uploads.count()
             start = (page - 1) * page_size
             end = start + page_size
