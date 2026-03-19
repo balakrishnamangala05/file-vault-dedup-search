@@ -538,7 +538,14 @@ function App() {
                 </tr>
               ) : (
                 files.map((file) => (
-                  <tr key={file.id}>
+                  <tr key={file.id} className={selectedIds.has(file.id) ? "row-selected" : ""}>
+                    <td>
+                      <input
+                        type="checkbox"
+                        checked={selectedIds.has(file.id)}
+                        onChange={() => toggleSelect(file.id)}
+                      />
+                    </td>
                     <td>
                       <span style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
                         <FiFile size={16} style={{ color: "var(--text-muted)", flexShrink: 0 }} />
