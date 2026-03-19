@@ -299,6 +299,18 @@ function App() {
     });
   };
 
+  const getCategoryIcon = (category) => {
+    switch (category) {
+      case "image":    return <FiImage size={16} style={{ color: "#22c55e", flexShrink: 0 }} />;
+      case "video":    return <FiVideo size={16} style={{ color: "#a855f7", flexShrink: 0 }} />;
+      case "audio":    return <FiMusic size={16} style={{ color: "#f59e0b", flexShrink: 0 }} />;
+      case "document": return <FiFileText size={16} style={{ color: "#3b82f6", flexShrink: 0 }} />;
+      case "archive":  return <FiArchive size={16} style={{ color: "#ef4444", flexShrink: 0 }} />;
+      case "code":     return <FiCode size={16} style={{ color: "#06b6d4", flexShrink: 0 }} />;
+      default:         return <FiFile size={16} style={{ color: "var(--text-muted)", flexShrink: 0 }} />;
+    }
+  };
+
   const formatSize = (bytes) => {
     if (bytes === 0) return "0 B";
     const k = 1024;
@@ -668,7 +680,7 @@ function App() {
                     </td>
                     <td>
                       <span style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
-                        <FiFile size={16} style={{ color: "var(--text-muted)", flexShrink: 0 }} />
+                        {getCategoryIcon(file.stored_file.file_category)}
                         {file.original_name}
                       </span>
                     </td>
