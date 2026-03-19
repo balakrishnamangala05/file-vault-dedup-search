@@ -1,5 +1,78 @@
 const BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:8001/api";
 
+function authHeaders(extra = {}) {
+  const token = localStorage.getItem("access_token");
+  return token
+    ? { Authorization: `Bearer ${token}`, ...extra }
+    : { ...extra };
+}
+
+async function refreshAccessToken() {
+  const refresh = localStorage.getItem("refresh_token");
+  if (!refresh) throw new Error("No refresh token");
+  const res = await fetch(`${BASE_URL}/auth/refresh/`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ refresh }),
+  });
+  if (!res.ok) throw new Error("Session expired");
+  const data = await res.json();
+  localStorage.setItem("access_token", data.access);
+  return data.access;
+}
+
+async function apiFetch(url, options = {}) {
+  let res = await fetch(url, { ...options, headers: { ...authHeaders(), ...options.headers } });
+  if (res.status === 401) {
+    try {
+      await refreshAccessToken();
+      res = await fetch(url, { ...options, headers: { ...authHeaders(), ...options.headers } });
+    } catch {
+      localStorage.removeItem("access_token");
+      localStorage.removeItem("refresh_token");
+      window.location.reload();
+    }
+  }
+  return res;
+}
+
+export async function login(username, password) {
+  const res = await fetch(`${BASE_URL}/auth/login/`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ username, password }),
+  });
+  if (!res.ok) {
+    const data = await res.json().catch(() => ({}));
+    throw new Error(data.detail || "Invalid username or password");
+  }
+  const data = await res.json();
+  localStorage.setItem("access_token", data.access);
+  localStorage.setItem("refresh_token", data.refresh);
+  return data;
+}
+
+export async function register(username, password) {
+  const res = await fetch(`${BASE_URL}/auth/register/`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ username, password }),
+  });
+  if (!res.ok) {
+    const data = await res.json().catch(() => ({}));
+    throw new Error(data.error || "Registration failed");
+  }
+  const data = await res.json();
+  localStorage.setItem("access_token", data.access);
+  localStorage.setItem("refresh_token", data.refresh);
+  return data;
+}
+
+export function logout() {
+  localStorage.removeItem("access_token");
+  localStorage.removeItem("refresh_token");
+}
+
 export function uploadFile(file, onProgress) {
   return new Promise((resolve, reject) => {
     const formData = new FormData();
