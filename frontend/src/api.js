@@ -213,6 +213,47 @@ export async function getDuplicates() {
   return res.json();
 }
 
+export async function getTags() {
+  const res = await apiFetch(`${BASE_URL}/tags/`);
+  if (!res.ok) throw new Error(`Failed to load tags: ${res.status}`);
+  return res.json();
+}
+
+export async function createTag(name, color = "#3b82f6") {
+  const res = await apiFetch(`${BASE_URL}/tags/`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ name, color }),
+  });
+  if (!res.ok) {
+    const data = await res.json().catch(() => ({}));
+    throw new Error(data.error || `Failed to create tag: ${res.status}`);
+  }
+  return res.json();
+}
+
+export async function deleteTag(tagId) {
+  const res = await apiFetch(`${BASE_URL}/tags/${tagId}/`, { method: "DELETE" });
+  if (!res.ok) throw new Error(`Failed to delete tag: ${res.status}`);
+  return res.json();
+}
+
+export async function addTagToFile(uploadId, tagId) {
+  const res = await apiFetch(`${BASE_URL}/files/${uploadId}/tags/`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ tag_id: tagId }),
+  });
+  if (!res.ok) throw new Error(`Failed to add tag: ${res.status}`);
+  return res.json();
+}
+
+export async function removeTagFromFile(uploadId, tagId) {
+  const res = await apiFetch(`${BASE_URL}/files/${uploadId}/tags/${tagId}/`, { method: "DELETE" });
+  if (!res.ok) throw new Error(`Failed to remove tag: ${res.status}`);
+  return res.json();
+}
+
 export async function deleteFile(uploadId) {
   const res = await apiFetch(`${BASE_URL}/files/${uploadId}/`, {
     method: "DELETE",
