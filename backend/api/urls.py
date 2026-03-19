@@ -1,4 +1,6 @@
 from django.urls import path
+from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
+from .auth_views import RegisterView
 from .views import (
     UploadFileView, ListFilesView, ListStoredFilesView,
     DownloadByUploadIdView, DeleteFileUploadView, StatsView,
@@ -6,6 +8,12 @@ from .views import (
 )
 
 urlpatterns = [
+    # auth
+    path("auth/register/", RegisterView.as_view(), name="register"),
+    path("auth/login/", TokenObtainPairView.as_view(), name="login"),
+    path("auth/refresh/", TokenRefreshView.as_view(), name="token-refresh"),
+
+    # files
     path("stats/", StatsView.as_view(), name="stats"),
     path("files/upload/", UploadFileView.as_view(), name="upload-file"),
     path("files/bulk-delete/", BulkDeleteView.as_view(), name="bulk-delete"),
