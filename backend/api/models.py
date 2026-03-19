@@ -5,6 +5,7 @@ class StoredFile(models.Model):
     sha256 = models.CharField(max_length=64, unique=True, db_index=True)
     size_bytes = models.BigIntegerField()
     storage_path = models.TextField()
+    mime_type = models.CharField(max_length=120, default="application/octet-stream")
     ref_count = models.IntegerField(default=0)
     created_at = models.DateTimeField(auto_now_add=True)
 
