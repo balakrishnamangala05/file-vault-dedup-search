@@ -52,6 +52,10 @@ function App() {
   const [expandedDup, setExpandedDup] = useState(null);
   const [selectedIds, setSelectedIds] = useState(new Set());
   const [bulkWorking, setBulkWorking] = useState(false);
+  const [isAuthenticated, setIsAuthenticated] = useState(() => !!localStorage.getItem("access_token"));
+  const [authTab, setAuthTab] = useState("login");
+  const [authLoading, setAuthLoading] = useState(false);
+  const [authError, setAuthError] = useState("");
 
   const addToast = useCallback((message, type = "success") => {
     const id = Date.now();
