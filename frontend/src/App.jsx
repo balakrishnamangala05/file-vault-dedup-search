@@ -55,6 +55,13 @@ function App() {
   const [duplicates, setDuplicates] = useState([]);
   const [dupLoading, setDupLoading] = useState(false);
   const [expandedDup, setExpandedDup] = useState(null);
+  const [showFilters, setShowFilters] = useState(false);
+  const [filterType, setFilterType] = useState("");
+  const [filterDateFrom, setFilterDateFrom] = useState("");
+  const [filterDateTo, setFilterDateTo] = useState("");
+  const [filterSizeMin, setFilterSizeMin] = useState("");
+  const [filterSizeMax, setFilterSizeMax] = useState("");
+  const [filterSizeUnit, setFilterSizeUnit] = useState("MB");
   const [selectedIds, setSelectedIds] = useState(new Set());
   const [bulkWorking, setBulkWorking] = useState(false);
   const [isAuthenticated, setIsAuthenticated] = useState(() => !!localStorage.getItem("access_token"));
