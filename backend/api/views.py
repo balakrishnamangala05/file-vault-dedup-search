@@ -1,12 +1,14 @@
 import hashlib
+import io
 import os
+import zipfile
 from django.conf import settings
-from django.http import FileResponse, Http404
+from django.http import FileResponse, Http404, HttpResponse
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
 from .models import StoredFile, FileUpload
-from .serializers import FileUploadSerializer, StoredFileSerializer
+from .serializers import FileUploadSerializer, StoredFileFlatSerializer, StoredFileWithUploadsSerializer
 
 
 def compute_sha256_and_save(uploaded_file):
@@ -113,7 +115,73 @@ class ListFilesView(APIView):
 class ListStoredFilesView(APIView):
     def get(self, request):
         stored = StoredFile.objects.all().order_by("-created_at")
-        return Response(StoredFileSerializer(stored, many=True).data)
+        return Response(StoredFileFlatSerializer(stored, many=True).data)
+
+
+class DuplicatesView(APIView):
+    def get(self, request):
+        dupes = StoredFile.objects.filter(ref_count__gt=1).prefetch_related("uploads").order_by("-ref_count")
+        return Response(StoredFileWithUploadsSerializer(dupes, many=True).data)
+
+
+class BulkDeleteView(APIView):
+    def delete(self, request):
+        ids = request.data.get("ids", [])
+        if not ids:
+            return Response({"error": "No IDs provided"}, status=status.HTTP_400_BAD_REQUEST)
+
+        deleted = 0
+        errors = []
+        for upload_id in ids:
+            try:
+                upload = FileUpload.objects.select_related("stored_file").get(id=upload_id)
+                stored_file = upload.stored_file
+                upload.delete()
+                stored_file.ref_count -= 1
+                stored_file.save()
+                if stored_file.ref_count <= 0:
+                    if os.path.exists(stored_file.storage_path):
+                        os.remove(stored_file.storage_path)
+                    stored_file.delete()
+                deleted += 1
+            except FileUpload.DoesNotExist:
+                errors.append({"id": upload_id, "error": "Not found"})
+            except Exception as e:
+                errors.append({"id": upload_id, "error": str(e)})
+
+        return Response({"deleted": deleted, "errors": errors}, status=status.HTTP_200_OK)
+
+
+class BulkDownloadZipView(APIView):
+    def post(self, request):
+        ids = request.data.get("ids", [])
+        if not ids:
+            return Response({"error": "No IDs provided"}, status=status.HTTP_400_BAD_REQUEST)
+
+        uploads = FileUpload.objects.select_related("stored_file").filter(id__in=ids)
+        if not uploads.exists():
+            return Response({"error": "No matching uploads"}, status=status.HTTP_404_NOT_FOUND)
+
+        buf = io.BytesIO()
+        with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as zf:
+            seen_names = {}
+            for upload in uploads:
+                path = upload.stored_file.storage_path
+                if not os.path.exists(path):
+                    continue
+                name = upload.original_name
+                if name in seen_names:
+                    seen_names[name] += 1
+                    base, ext = os.path.splitext(name)
+                    name = f"{base}_{seen_names[name]}{ext}"
+                else:
+                    seen_names[name] = 0
+                zf.write(path, name)
+
+        buf.seek(0)
+        response = HttpResponse(buf.read(), content_type="application/zip")
+        response["Content-Disposition"] = 'attachment; filename="vault-export.zip"'
+        return response
 
 
 class DownloadByUploadIdView(APIView):
