@@ -254,6 +254,41 @@ export async function removeTagFromFile(uploadId, tagId) {
   return res.json();
 }
 
+export async function getFolders() {
+  const res = await apiFetch(`${BASE_URL}/folders/`);
+  if (!res.ok) throw new Error(`Failed to load folders: ${res.status}`);
+  return res.json();
+}
+
+export async function createFolder(name) {
+  const res = await apiFetch(`${BASE_URL}/folders/`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ name }),
+  });
+  if (!res.ok) {
+    const data = await res.json().catch(() => ({}));
+    throw new Error(data.error || `Failed to create folder: ${res.status}`);
+  }
+  return res.json();
+}
+
+export async function deleteFolder(folderId) {
+  const res = await apiFetch(`${BASE_URL}/folders/${folderId}/`, { method: "DELETE" });
+  if (!res.ok) throw new Error(`Failed to delete folder: ${res.status}`);
+  return res.json();
+}
+
+export async function moveFile(uploadId, folderId) {
+  const res = await apiFetch(`${BASE_URL}/files/${uploadId}/move/`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ folder_id: folderId }),
+  });
+  if (!res.ok) throw new Error(`Failed to move file: ${res.status}`);
+  return res.json();
+}
+
 export async function deleteFile(uploadId) {
   const res = await apiFetch(`${BASE_URL}/files/${uploadId}/`, {
     method: "DELETE",
