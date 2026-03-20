@@ -54,3 +54,15 @@ class FileUpload(models.Model):
 
     def __str__(self):
         return f"FileUpload({self.original_name})"
+
+
+class FileIndex(models.Model):
+    upload = models.OneToOneField(FileUpload, on_delete=models.CASCADE, related_name="index")
+    content_text = models.TextField(blank=True)
+    indexed_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = "api_fileindex"
+
+    def __str__(self):
+        return f"FileIndex({self.upload.original_name})"
