@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
-import { uploadFile, listUploads, deleteFile, getStats, getDuplicates, bulkDelete, bulkDownloadZip, login, register, logout } from "./api";
+import { uploadFile, listUploads, deleteFile, getStats, getDuplicates, bulkDelete, bulkDownloadZip, login, register, logout, getTags, createTag, deleteTag, addTagToFile, removeTagFromFile } from "./api";
 import {
   FiUpload,
   FiSearch,
@@ -23,6 +23,8 @@ import {
   FiX,
   FiFilter,
   FiSliders,
+  FiTag,
+  FiPlus,
 } from "react-icons/fi";
 import "./App.css";
 
@@ -70,6 +72,85 @@ function App() {
   const [authTab, setAuthTab] = useState("login");
   const [authLoading, setAuthLoading] = useState(false);
   const [authError, setAuthError] = useState("");
+  const [allTags, setAllTags] = useState([]);
+  const [tagDropdownOpenId, setTagDropdownOpenId] = useState(null);
+  const [showTagManager, setShowTagManager] = useState(false);
+  const [newTagName, setNewTagName] = useState("");
+  const [newTagColor, setNewTagColor] = useState("#3b82f6");
+  const [tagWorking, setTagWorking] = useState(false);
+
+  const loadTags = useCallback(async () => {
+    if (!isAuthenticated) return;
+    try {
+      const data = await getTags();
+      setAllTags(data);
+    } catch (err) {
+      console.error("Tags error:", err);
+    }
+  }, [isAuthenticated]);
+
+  const handleAddTag = async (uploadId, tagId) => {
+    setTagWorking(true);
+    try {
+      const updated = await addTagToFile(uploadId, tagId);
+      setFiles((prev) => prev.map((f) => (f.id === uploadId ? updated : f)));
+      setTagDropdownOpenId(null);
+    } catch (err) {
+      addToast("Failed to add tag: " + err.message, "error");
+    } finally {
+      setTagWorking(false);
+    }
+  };
+
+  const handleRemoveTag = async (uploadId, tagId) => {
+    setTagWorking(true);
+    try {
+      await removeTagFromFile(uploadId, tagId);
+      setFiles((prev) =>
+        prev.map((f) =>
+          f.id === uploadId ? { ...f, tags: f.tags.filter((t) => t.id !== tagId) } : f
+        )
+      );
+    } catch (err) {
+      addToast("Failed to remove tag: " + err.message, "error");
+    } finally {
+      setTagWorking(false);
+    }
+  };
+
+  const handleCreateTag = async (e) => {
+    e.preventDefault();
+    if (!newTagName.trim()) return;
+    setTagWorking(true);
+    try {
+      const tag = await createTag(newTagName.trim(), newTagColor);
+      setAllTags((prev) => [...prev, tag].sort((a, b) => a.name.localeCompare(b.name)));
+      setNewTagName("");
+      setNewTagColor("#3b82f6");
+      addToast(`Tag "${tag.name}" created.`);
+    } catch (err) {
+      addToast("Failed to create tag: " + err.message, "error");
+    } finally {
+      setTagWorking(false);
+    }
+  };
+
+  const handleDeleteTag = async (tagId, tagName) => {
+    if (!window.confirm(`Delete tag "${tagName}"? It will be removed from all files.`)) return;
+    setTagWorking(true);
+    try {
+      await deleteTag(tagId);
+      setAllTags((prev) => prev.filter((t) => t.id !== tagId));
+      setFiles((prev) =>
+        prev.map((f) => ({ ...f, tags: f.tags.filter((t) => t.id !== tagId) }))
+      );
+      addToast(`Tag "${tagName}" deleted.`);
+    } catch (err) {
+      addToast("Failed to delete tag: " + err.message, "error");
+    } finally {
+      setTagWorking(false);
+    }
+  };
 
   const addToast = useCallback((message, type = "success") => {
     const id = Date.now();
@@ -153,6 +234,17 @@ function App() {
   useEffect(() => {
     loadFiles();
   }, [loadFiles]);
+
+  useEffect(() => {
+    loadTags();
+  }, [loadTags]);
+
+  useEffect(() => {
+    if (!tagDropdownOpenId) return;
+    const close = () => setTagDropdownOpenId(null);
+    document.addEventListener("click", close);
+    return () => document.removeEventListener("click", close);
+  }, [tagDropdownOpenId]);
 
   const handleFileUpload = async (e) => {
     const file = e.target.files?.[0];
@@ -539,6 +631,14 @@ function App() {
               <span className="tab-badge">●</span>
             )}
           </button>
+          <button
+            className="btn btn-ghost btn-sm"
+            onClick={() => setShowTagManager(true)}
+          >
+            <FiTag size={16} />
+            Tags
+            {allTags.length > 0 && <span className="tab-badge">{allTags.length}</span>}
+          </button>
         </div>
 
         {showFilters && (
@@ -759,10 +859,59 @@ function App() {
                       />
                     </td>
                     <td>
-                      <span style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
-                        {getCategoryIcon(file.stored_file.file_category)}
-                        {file.original_name}
-                      </span>
+                      <div style={{ display: "flex", flexDirection: "column", gap: "0.3rem" }}>
+                        <span style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+                          {getCategoryIcon(file.stored_file.file_category)}
+                          {file.original_name}
+                        </span>
+                        <div style={{ display: "flex", flexWrap: "wrap", gap: "0.25rem", alignItems: "center" }}>
+                          {file.tags.map((tag) => (
+                            <span
+                              key={tag.id}
+                              className="tag-chip"
+                              style={{ backgroundColor: tag.color }}
+                            >
+                              {tag.name}
+                              <button
+                                className="tag-chip-remove"
+                                onClick={() => handleRemoveTag(file.id, tag.id)}
+                                title={`Remove tag "${tag.name}"`}
+                              >
+                                <FiX size={10} />
+                              </button>
+                            </span>
+                          ))}
+                          <div style={{ position: "relative" }}>
+                            <button
+                              className="btn-tag-add"
+                              onClick={() => setTagDropdownOpenId(tagDropdownOpenId === file.id ? null : file.id)}
+                              title="Add tag"
+                            >
+                              <FiPlus size={11} />
+                            </button>
+                            {tagDropdownOpenId === file.id && (
+                              <div className="tag-dropdown">
+                                {allTags.filter((t) => !file.tags.some((ft) => ft.id === t.id)).length === 0 ? (
+                                  <div className="tag-dropdown-empty">All tags applied</div>
+                                ) : (
+                                  allTags
+                                    .filter((t) => !file.tags.some((ft) => ft.id === t.id))
+                                    .map((tag) => (
+                                      <button
+                                        key={tag.id}
+                                        className="tag-dropdown-item"
+                                        onClick={() => handleAddTag(file.id, tag.id)}
+                                      >
+                                        <span className="tag-dot" style={{ backgroundColor: tag.color }} />
+                                        {tag.name}
+                                      </button>
+                                    ))
+                                )}
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      </div>
                     </td>
                     <td>{formatSize(file.stored_file.size_bytes)}</td>
                     <td>
@@ -857,6 +1006,56 @@ function App() {
           </div>
         ))}
       </div>
+
+      {/* Tag Manager Modal */}
+      {showTagManager && (
+        <div className="preview-overlay" onClick={() => setShowTagManager(false)}>
+          <div className="tag-manager-modal" onClick={(e) => e.stopPropagation()}>
+            <div className="preview-header">
+              <span className="preview-filename"><FiTag size={16} /> Tag Manager</span>
+              <button className="btn btn-ghost btn-sm" onClick={() => setShowTagManager(false)}><FiX size={18} /></button>
+            </div>
+            <div className="tag-manager-body">
+              <form className="tag-create-form" onSubmit={handleCreateTag}>
+                <input
+                  type="text"
+                  placeholder="New tag name…"
+                  value={newTagName}
+                  onChange={(e) => setNewTagName(e.target.value)}
+                  maxLength={50}
+                />
+                <input
+                  type="color"
+                  value={newTagColor}
+                  onChange={(e) => setNewTagColor(e.target.value)}
+                  title="Pick tag color"
+                  className="color-picker"
+                />
+                <button className="btn btn-primary btn-sm" type="submit" disabled={tagWorking || !newTagName.trim()}>
+                  <FiPlus size={14} /> Create
+                </button>
+              </form>
+              <div className="tag-list">
+                {allTags.length === 0 && (
+                  <div className="tag-dropdown-empty">No tags yet. Create one above.</div>
+                )}
+                {allTags.map((tag) => (
+                  <div key={tag.id} className="tag-list-item">
+                    <span className="tag-chip" style={{ backgroundColor: tag.color }}>{tag.name}</span>
+                    <button
+                      className="btn btn-danger btn-sm"
+                      onClick={() => handleDeleteTag(tag.id, tag.name)}
+                      disabled={tagWorking}
+                    >
+                      <FiTrash2 size={13} />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Preview Panel */}
       {previewFile && (
