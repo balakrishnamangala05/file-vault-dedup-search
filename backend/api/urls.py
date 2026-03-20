@@ -5,7 +5,7 @@ from .views import (
     UploadFileView, ListFilesView, ListStoredFilesView,
     DownloadByUploadIdView, DeleteFileUploadView, StatsView,
     DuplicatesView, BulkDeleteView, BulkDownloadZipView,
-    TagView, FileTagView,
+    TagView, FileTagView, FolderView, MoveFileView,
 )
 
 urlpatterns = [
@@ -30,4 +30,9 @@ urlpatterns = [
     path("tags/<int:tag_id>/", TagView.as_view(), name="tag-detail"),
     path("files/<int:upload_id>/tags/", FileTagView.as_view(), name="file-tags"),
     path("files/<int:upload_id>/tags/<int:tag_id>/", FileTagView.as_view(), name="file-tag-detail"),
+
+    # folders
+    path("folders/", FolderView.as_view(), name="folders"),
+    path("folders/<int:folder_id>/", FolderView.as_view(), name="folder-detail"),
+    path("files/<int:upload_id>/move/", MoveFileView.as_view(), name="move-file"),
 ]

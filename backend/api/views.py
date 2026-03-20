@@ -8,8 +8,8 @@ from django.http import FileResponse, Http404, HttpResponse
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
-from .models import StoredFile, FileUpload, Tag
-from .serializers import FileUploadSerializer, StoredFileFlatSerializer, StoredFileWithUploadsSerializer, TagSerializer
+from .models import StoredFile, FileUpload, Tag, Folder
+from .serializers import FileUploadSerializer, StoredFileFlatSerializer, StoredFileWithUploadsSerializer, TagSerializer, FolderSerializer
 
 
 DOCUMENT_MIMES = {
@@ -158,6 +158,12 @@ class ListFilesView(APIView):
                 uploads = uploads.filter(stored_file__size_bytes__gte=int(size_min))
             if size_max:
                 uploads = uploads.filter(stored_file__size_bytes__lte=int(size_max))
+
+            folder_param = request.query_params.get("folder", "").strip()
+            if folder_param == "none":
+                uploads = uploads.filter(folder__isnull=True)
+            elif folder_param:
+                uploads = uploads.filter(folder__id=folder_param)
 
             total = uploads.count()
             start = (page - 1) * page_size
@@ -338,6 +344,47 @@ class StatsView(APIView):
                 {"error": str(e)},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
+
+
+class FolderView(APIView):
+    def get(self, request):
+        from django.db.models import Count
+        folders = Folder.objects.annotate(file_count=Count("files")).order_by("name")
+        return Response(FolderSerializer(folders, many=True).data)
+
+    def post(self, request):
+        name = request.data.get("name", "").strip()
+        if not name:
+            return Response({"error": "Folder name is required"}, status=status.HTTP_400_BAD_REQUEST)
+        if Folder.objects.filter(name__iexact=name).exists():
+            return Response({"error": "Folder already exists"}, status=status.HTTP_400_BAD_REQUEST)
+        folder = Folder.objects.create(name=name)
+        return Response(FolderSerializer(folder).data, status=status.HTTP_201_CREATED)
+
+    def delete(self, request, folder_id):
+        try:
+            folder = Folder.objects.get(id=folder_id)
+            folder.delete()
+            return Response({"message": "Folder deleted"}, status=status.HTTP_200_OK)
+        except Folder.DoesNotExist:
+            return Response({"error": "Folder not found"}, status=status.HTTP_404_NOT_FOUND)
+
+
+class MoveFileView(APIView):
+    def patch(self, request, upload_id):
+        try:
+            upload = FileUpload.objects.get(id=upload_id)
+            folder_id = request.data.get("folder_id")
+            if folder_id is None:
+                upload.folder = None
+            else:
+                upload.folder = Folder.objects.get(id=folder_id)
+            upload.save()
+            return Response(FileUploadSerializer(upload).data)
+        except FileUpload.DoesNotExist:
+            return Response({"error": "Upload not found"}, status=status.HTTP_404_NOT_FOUND)
+        except Folder.DoesNotExist:
+            return Response({"error": "Folder not found"}, status=status.HTTP_404_NOT_FOUND)
 
 
 class DeleteFileUploadView(APIView):

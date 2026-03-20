@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import StoredFile, FileUpload, Tag
+from .models import StoredFile, FileUpload, Tag, Folder
 
 
 class TagSerializer(serializers.ModelSerializer):
@@ -30,6 +30,14 @@ class StoredFileFlatSerializer(serializers.ModelSerializer):
     def get_file_category(self, obj):
         from .views import get_file_category
         return get_file_category(obj.mime_type)
+
+
+class FolderSerializer(serializers.ModelSerializer):
+    file_count = serializers.IntegerField(read_only=True, default=0)
+
+    class Meta:
+        model = Folder
+        fields = ["id", "name", "created_at", "file_count"]
 
 
 class StoredFileWithUploadsSerializer(serializers.ModelSerializer):
