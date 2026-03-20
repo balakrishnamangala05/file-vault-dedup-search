@@ -29,10 +29,23 @@ class StoredFile(models.Model):
         return f"StoredFile({self.sha256[:16]}...)"
 
 
+class Folder(models.Model):
+    name = models.CharField(max_length=100)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = "api_folder"
+        ordering = ["name"]
+
+    def __str__(self):
+        return self.name
+
+
 class FileUpload(models.Model):
     original_name = models.CharField(max_length=255)
     stored_file = models.ForeignKey(StoredFile, on_delete=models.CASCADE, related_name="uploads")
     tags = models.ManyToManyField(Tag, blank=True, related_name="uploads")
+    folder = models.ForeignKey(Folder, null=True, blank=True, on_delete=models.SET_NULL, related_name="files")
     uploaded_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
