@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
-import { uploadFile, listUploads, deleteFile, getStats, getDuplicates, bulkDelete, bulkDownloadZip, login, register, logout, getTags, createTag, deleteTag, addTagToFile, removeTagFromFile, getFolders, createFolder, deleteFolder, moveFile } from "./api";
+import { uploadFile, listUploads, deleteFile, getStats, getDuplicates, bulkDelete, bulkDownloadZip, login, register, logout, getTags, createTag, deleteTag, addTagToFile, removeTagFromFile, getFolders, createFolder, deleteFolder, moveFile, downloadFileBlob } from "./api";
 import {
   FiUpload,
   FiSearch,
@@ -58,6 +58,7 @@ function App() {
   const [toasts, setToasts] = useState([]);
   const [previewFile, setPreviewFile] = useState(null);
   const [previewText, setPreviewText] = useState(null);
+  const [previewUrl, setPreviewUrl] = useState(null);
   const [activeTab, setActiveTab] = useState("files");
   const [duplicates, setDuplicates] = useState([]);
   const [dupLoading, setDupLoading] = useState(false);
@@ -462,22 +463,25 @@ function App() {
   const handlePreview = async (file) => {
     setPreviewFile(file);
     setPreviewText(null);
+    setPreviewUrl(null);
     const type = getPreviewType(file.original_name);
-    if (type === "text") {
-      try {
-        const BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:8001/api";
-        const res = await fetch(`${BASE_URL}/files/${file.id}/download/`);
-        const text = await res.text();
-        setPreviewText(text);
-      } catch {
-        setPreviewText("Could not load file content.");
+    try {
+      const blob = await downloadFileBlob(file.id);
+      if (type === "text") {
+        setPreviewText(await blob.text());
+      } else if (type === "image" || type === "pdf") {
+        setPreviewUrl(URL.createObjectURL(blob));
       }
+    } catch {
+      setPreviewText("Could not load file content.");
     }
   };
 
   const closePreview = () => {
+    if (previewUrl) URL.revokeObjectURL(previewUrl);
     setPreviewFile(null);
     setPreviewText(null);
+    setPreviewUrl(null);
   };
 
   const formatDate = (dateString) => {
@@ -1252,18 +1256,14 @@ function App() {
             </div>
             <div className="preview-body">
               {getPreviewType(previewFile.original_name) === "image" && (
-                <img
-                  src={`${import.meta.env.VITE_API_URL || "http://localhost:8001/api"}/files/${previewFile.id}/download/`}
-                  alt={previewFile.original_name}
-                  className="preview-image"
-                />
+                previewUrl
+                  ? <img src={previewUrl} alt={previewFile.original_name} className="preview-image" />
+                  : <div className="preview-unsupported"><p>Loading…</p></div>
               )}
               {getPreviewType(previewFile.original_name) === "pdf" && (
-                <iframe
-                  src={`${import.meta.env.VITE_API_URL || "http://localhost:8001/api"}/files/${previewFile.id}/download/`}
-                  title={previewFile.original_name}
-                  className="preview-iframe"
-                />
+                previewUrl
+                  ? <iframe src={previewUrl} title={previewFile.original_name} className="preview-iframe" />
+                  : <div className="preview-unsupported"><p>Loading…</p></div>
               )}
               {getPreviewType(previewFile.original_name) === "text" && (
                 <pre className="preview-code">

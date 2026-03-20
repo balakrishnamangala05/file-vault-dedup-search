@@ -215,6 +215,13 @@ export async function getDuplicates() {
   return res.json();
 }
 
+export async function downloadFileBlob(uploadId) {
+  const BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:8001/api";
+  const res = await apiFetch(`${BASE_URL}/files/${uploadId}/download/`);
+  if (!res.ok) throw new Error(`Failed to fetch file: ${res.status}`);
+  return res.blob();
+}
+
 export async function getTags() {
   const res = await apiFetch(`${BASE_URL}/tags/`);
   if (!res.ok) throw new Error(`Failed to load tags: ${res.status}`);
