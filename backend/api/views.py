@@ -8,7 +8,7 @@ from django.http import FileResponse, Http404, HttpResponse
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
-from .models import StoredFile, FileUpload, Tag, Folder
+from .models import StoredFile, FileUpload, Tag, Folder, FileIndex
 from .serializers import FileUploadSerializer, StoredFileFlatSerializer, StoredFileWithUploadsSerializer, TagSerializer, FolderSerializer
 
 
@@ -68,6 +68,27 @@ def compute_sha256_and_save(uploaded_file):
     return sha256, total_size, storage_path
 
 
+MAX_TEXT_BYTES = 512 * 1024  # 512 KB
+
+
+def extract_text(storage_path, mime_type):
+    try:
+        if mime_type.startswith("text/") or mime_type in {
+            "application/json", "application/javascript", "application/xml"
+        }:
+            with open(storage_path, "r", encoding="utf-8", errors="ignore") as f:
+                return f.read(MAX_TEXT_BYTES)
+
+        if mime_type == "application/pdf":
+            from pdfminer.high_level import extract_text as pdf_extract
+            text = pdf_extract(storage_path)
+            return text[:MAX_TEXT_BYTES] if text else ""
+
+    except Exception:
+        pass
+    return ""
+
+
 class UploadFileView(APIView):
     def post(self, request):
         uploaded_file = request.FILES.get("file")
@@ -99,6 +120,9 @@ class UploadFileView(APIView):
             stored_file=stored
         )
 
+        content_text = extract_text(storage_path, mime_type)
+        FileIndex.objects.create(upload=upload, content_text=content_text)
+
         return Response(FileUploadSerializer(upload).data, status=status.HTTP_201_CREATED)
 
 
@@ -119,10 +143,14 @@ class ListFilesView(APIView):
             }
             order_by = allowed_orders.get(order, "-uploaded_at")
 
+            search_mode = request.query_params.get("search_mode", "filename")
             uploads = FileUpload.objects.select_related("stored_file").all().order_by(order_by)
 
             if q:
-                uploads = uploads.filter(original_name__icontains=q)
+                if search_mode == "content":
+                    uploads = uploads.filter(index__content_text__icontains=q)
+                else:
+                    uploads = uploads.filter(original_name__icontains=q)
 
             file_type = request.query_params.get("file_type", "").strip()
             if file_type:
