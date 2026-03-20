@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
-import { uploadFile, listUploads, deleteFile, getStats, getDuplicates, bulkDelete, bulkDownloadZip, login, register, logout, getTags, createTag, deleteTag, addTagToFile, removeTagFromFile } from "./api";
+import { uploadFile, listUploads, deleteFile, getStats, getDuplicates, bulkDelete, bulkDownloadZip, login, register, logout, getTags, createTag, deleteTag, addTagToFile, removeTagFromFile, getFolders, createFolder, deleteFolder, moveFile } from "./api";
 import {
   FiUpload,
   FiSearch,
@@ -25,6 +25,9 @@ import {
   FiSliders,
   FiTag,
   FiPlus,
+  FiFolder,
+  FiFolderPlus,
+  FiMoreVertical,
 } from "react-icons/fi";
 import "./App.css";
 
@@ -78,6 +81,68 @@ function App() {
   const [newTagName, setNewTagName] = useState("");
   const [newTagColor, setNewTagColor] = useState("#3b82f6");
   const [tagWorking, setTagWorking] = useState(false);
+  const [folders, setFolders] = useState([]);
+  const [activeFolderId, setActiveFolderId] = useState(null);
+  const [newFolderName, setNewFolderName] = useState("");
+  const [showNewFolder, setShowNewFolder] = useState(false);
+  const [moveDropdownOpenId, setMoveDropdownOpenId] = useState(null);
+  const [folderWorking, setFolderWorking] = useState(false);
+
+  const loadFolders = useCallback(async () => {
+    if (!isAuthenticated) return;
+    try {
+      const data = await getFolders();
+      setFolders(data);
+    } catch (err) {
+      console.error("Folders error:", err);
+    }
+  }, [isAuthenticated]);
+
+  const handleCreateFolder = async (e) => {
+    e.preventDefault();
+    if (!newFolderName.trim()) return;
+    setFolderWorking(true);
+    try {
+      const folder = await createFolder(newFolderName.trim());
+      setFolders((prev) => [...prev, folder].sort((a, b) => a.name.localeCompare(b.name)));
+      setNewFolderName("");
+      setShowNewFolder(false);
+      addToast(`Folder "${folder.name}" created.`);
+    } catch (err) {
+      addToast("Failed to create folder: " + err.message, "error");
+    } finally {
+      setFolderWorking(false);
+    }
+  };
+
+  const handleDeleteFolder = async (folderId, folderName) => {
+    if (!window.confirm(`Delete folder "${folderName}"? Files inside will become unorganized.`)) return;
+    setFolderWorking(true);
+    try {
+      await deleteFolder(folderId);
+      setFolders((prev) => prev.filter((f) => f.id !== folderId));
+      if (activeFolderId === folderId) setActiveFolderId(null);
+      addToast(`Folder "${folderName}" deleted.`);
+    } catch (err) {
+      addToast("Failed to delete folder: " + err.message, "error");
+    } finally {
+      setFolderWorking(false);
+    }
+  };
+
+  const handleMoveFile = async (uploadId, folderId) => {
+    setFolderWorking(true);
+    try {
+      const updated = await moveFile(uploadId, folderId);
+      setFiles((prev) => prev.map((f) => (f.id === uploadId ? updated : f)));
+      setMoveDropdownOpenId(null);
+      await loadFolders();
+    } catch (err) {
+      addToast("Failed to move file: " + err.message, "error");
+    } finally {
+      setFolderWorking(false);
+    }
+  };
 
   const loadTags = useCallback(async () => {
     if (!isAuthenticated) return;
@@ -196,6 +261,7 @@ function App() {
         date_to: filterDateTo,
         size_min: filterSizeMin ? Math.round(filterSizeMin * unitMultiplier[filterSizeUnit]) : "",
         size_max: filterSizeMax ? Math.round(filterSizeMax * unitMultiplier[filterSizeUnit]) : "",
+        folder: activeFolderId === "none" ? "none" : activeFolderId ?? "",
       };
       const data = await listUploads(searchQuery, page, pageSize, order, filters);
       setFiles(data.results);
@@ -209,7 +275,7 @@ function App() {
     } finally {
       setLoading(false);
     }
-  }, [searchQuery, page, pageSize, order, isAuthenticated, filterType, filterDateFrom, filterDateTo, filterSizeMin, filterSizeMax, filterSizeUnit]);
+  }, [searchQuery, page, pageSize, order, isAuthenticated, filterType, filterDateFrom, filterDateTo, filterSizeMin, filterSizeMax, filterSizeUnit, activeFolderId]);
 
 
   useEffect(() => {
@@ -238,6 +304,17 @@ function App() {
   useEffect(() => {
     loadTags();
   }, [loadTags]);
+
+  useEffect(() => {
+    loadFolders();
+  }, [loadFolders]);
+
+  useEffect(() => {
+    if (!moveDropdownOpenId) return;
+    const close = () => setMoveDropdownOpenId(null);
+    document.addEventListener("click", close);
+    return () => document.removeEventListener("click", close);
+  }, [moveDropdownOpenId]);
 
   useEffect(() => {
     if (!tagDropdownOpenId) return;
@@ -504,6 +581,69 @@ function App() {
           </button>
         )}
       </header>
+
+      <div className="app-body">
+        {/* Folder Sidebar */}
+        <aside className="folder-sidebar">
+          <div className="sidebar-title">Folders</div>
+          <nav className="folder-nav">
+            <button
+              className={`folder-nav-item${activeFolderId === null ? " active" : ""}`}
+              onClick={() => setActiveFolderId(null)}
+            >
+              <FiFile size={14} /> All Files
+            </button>
+            <button
+              className={`folder-nav-item${activeFolderId === "none" ? " active" : ""}`}
+              onClick={() => setActiveFolderId("none")}
+            >
+              <FiInbox size={14} /> Unorganized
+            </button>
+            <div className="folder-divider" />
+            {folders.map((folder) => (
+              <div key={folder.id} className="folder-nav-row">
+                <button
+                  className={`folder-nav-item${activeFolderId === folder.id ? " active" : ""}`}
+                  onClick={() => setActiveFolderId(folder.id)}
+                >
+                  <FiFolder size={14} /> {folder.name}
+                  <span className="folder-count">{folder.file_count}</span>
+                </button>
+                <button
+                  className="folder-nav-delete"
+                  onClick={() => handleDeleteFolder(folder.id, folder.name)}
+                  title="Delete folder"
+                >
+                  <FiX size={12} />
+                </button>
+              </div>
+            ))}
+          </nav>
+          {showNewFolder ? (
+            <form className="new-folder-form" onSubmit={handleCreateFolder}>
+              <input
+                type="text"
+                placeholder="Folder name…"
+                value={newFolderName}
+                onChange={(e) => setNewFolderName(e.target.value)}
+                autoFocus
+                maxLength={100}
+              />
+              <div style={{ display: "flex", gap: "0.4rem" }}>
+                <button className="btn btn-primary btn-sm" type="submit" disabled={folderWorking || !newFolderName.trim()}>
+                  Add
+                </button>
+                <button className="btn btn-ghost btn-sm" type="button" onClick={() => { setShowNewFolder(false); setNewFolderName(""); }}>
+                  Cancel
+                </button>
+              </div>
+            </form>
+          ) : (
+            <button className="btn btn-ghost btn-sm sidebar-add-btn" onClick={() => setShowNewFolder(true)}>
+              <FiFolderPlus size={15} /> New Folder
+            </button>
+          )}
+        </aside>
 
       <main className="app-main">
         {/* Stats dashboard */}
@@ -946,6 +1086,36 @@ function App() {
                           <FiDownload size={14} />
                           Download
                         </button>
+                        <div style={{ position: "relative" }}>
+                          <button
+                            type="button"
+                            className="btn btn-ghost btn-sm"
+                            onClick={(e) => { e.stopPropagation(); setMoveDropdownOpenId(moveDropdownOpenId === file.id ? null : file.id); }}
+                            title="Move to folder"
+                          >
+                            <FiFolder size={14} />
+                            Move
+                          </button>
+                          {moveDropdownOpenId === file.id && (
+                            <div className="tag-dropdown" onClick={(e) => e.stopPropagation()}>
+                              <button
+                                className="tag-dropdown-item"
+                                onClick={() => handleMoveFile(file.id, null)}
+                              >
+                                <FiInbox size={13} /> Unorganized
+                              </button>
+                              {folders.map((folder) => (
+                                <button
+                                  key={folder.id}
+                                  className="tag-dropdown-item"
+                                  onClick={() => handleMoveFile(file.id, folder.id)}
+                                >
+                                  <FiFolder size={13} /> {folder.name}
+                                </button>
+                              ))}
+                            </div>
+                          )}
+                        </div>
                         <button
                           type="button"
                           className="btn btn-danger btn-sm"
@@ -992,6 +1162,7 @@ function App() {
           )}
         </div>}
       </main>
+      </div>
 
       <footer className="app-footer">
         File Vault — Secure corporate file storage with deduplication • Built with Django & React

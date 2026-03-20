@@ -132,6 +132,7 @@ export async function listUploads(q = "", page = 1, pageSize = 10, order = "-upl
   if (filters.date_to)     params.set("date_to", filters.date_to);
   if (filters.size_min)    params.set("size_min", String(filters.size_min));
   if (filters.size_max)    params.set("size_max", String(filters.size_max));
+  if (filters.folder)      params.set("folder", String(filters.folder));
   const url = `${BASE_URL}/files/?${params.toString()}`;
   const res = await apiFetch(url);
 
