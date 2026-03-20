@@ -87,6 +87,7 @@ function App() {
   const [showNewFolder, setShowNewFolder] = useState(false);
   const [moveDropdownOpenId, setMoveDropdownOpenId] = useState(null);
   const [folderWorking, setFolderWorking] = useState(false);
+  const [searchMode, setSearchMode] = useState("filename");
 
   const loadFolders = useCallback(async () => {
     if (!isAuthenticated) return;
@@ -263,7 +264,7 @@ function App() {
         size_max: filterSizeMax ? Math.round(filterSizeMax * unitMultiplier[filterSizeUnit]) : "",
         folder: activeFolderId === "none" ? "none" : activeFolderId ?? "",
       };
-      const data = await listUploads(searchQuery, page, pageSize, order, filters);
+      const data = await listUploads(searchQuery, page, pageSize, order, filters, searchMode);
       setFiles(data.results);
       setTotalCount(data.count);
       setTotalPages(data.total_pages);
@@ -275,7 +276,7 @@ function App() {
     } finally {
       setLoading(false);
     }
-  }, [searchQuery, page, pageSize, order, isAuthenticated, filterType, filterDateFrom, filterDateTo, filterSizeMin, filterSizeMax, filterSizeUnit, activeFolderId]);
+  }, [searchQuery, page, pageSize, order, isAuthenticated, filterType, filterDateFrom, filterDateTo, filterSizeMin, filterSizeMax, filterSizeUnit, activeFolderId, searchMode]);
 
 
   useEffect(() => {
@@ -733,12 +734,20 @@ function App() {
             <FiSearch size={18} style={{ position: "absolute", left: 12, top: "50%", transform: "translateY(-50%)", color: "var(--text-muted)" }} />
             <input
               type="text"
-              placeholder="Search by filename…"
+              placeholder={searchMode === "content" ? "Search inside files…" : "Search by filename…"}
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               style={{ paddingLeft: 36 }}
             />
           </div>
+          <button
+            className={`btn btn-ghost btn-sm${searchMode === "content" ? " active" : ""}`}
+            onClick={() => setSearchMode((m) => m === "filename" ? "content" : "filename")}
+            title="Toggle filename / content search"
+          >
+            <FiFileText size={15} />
+            {searchMode === "content" ? "Content" : "Filename"}
+          </button>
           <select
             className="page-size-select"
             value={pageSize}

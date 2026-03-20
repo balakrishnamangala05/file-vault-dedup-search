@@ -121,7 +121,7 @@ export function uploadFile(file, onProgress) {
   });
 }
 
-export async function listUploads(q = "", page = 1, pageSize = 10, order = "-uploaded_at", filters = {}) {
+export async function listUploads(q = "", page = 1, pageSize = 10, order = "-uploaded_at", filters = {}, searchMode = "filename") {
   const params = new URLSearchParams();
   if (q) params.set("q", q);
   params.set("page", String(page));
@@ -133,6 +133,7 @@ export async function listUploads(q = "", page = 1, pageSize = 10, order = "-upl
   if (filters.size_min)    params.set("size_min", String(filters.size_min));
   if (filters.size_max)    params.set("size_max", String(filters.size_max));
   if (filters.folder)      params.set("folder", String(filters.folder));
+  if (searchMode === "content") params.set("search_mode", "content");
   const url = `${BASE_URL}/files/?${params.toString()}`;
   const res = await apiFetch(url);
 
