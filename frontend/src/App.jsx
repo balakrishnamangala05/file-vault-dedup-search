@@ -557,7 +557,10 @@ function App() {
               </div>
               <div className="form-group">
                 <label>Password</label>
-                <input name="password" type="password" placeholder="At least 6 characters" required />
+                <input name="password" type="password" placeholder="Min 8 chars, 1 uppercase, 1 number" required />
+                <span style={{ fontSize: "0.75rem", color: "var(--text-muted)", marginTop: "0.25rem", display: "block" }}>
+                  Must be 8+ characters with at least one uppercase letter and one number.
+                </span>
               </div>
               {authError && <div className="auth-error">{authError}</div>}
               <button className="btn btn-primary" type="submit" disabled={authLoading}>

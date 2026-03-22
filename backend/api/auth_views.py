@@ -1,9 +1,26 @@
+import re
 from django.contrib.auth.models import User
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
 from rest_framework.permissions import AllowAny
 from rest_framework_simplejwt.tokens import RefreshToken
+
+COMMON_PASSWORDS = {
+    "password", "12345678", "123456789", "password1", "qwerty123",
+    "iloveyou", "admin123", "letmein1", "welcome1", "monkey123",
+}
+
+def validate_password(password):
+    if len(password) < 8:
+        return "Password must be at least 8 characters."
+    if not re.search(r"[A-Z]", password):
+        return "Password must contain at least one uppercase letter."
+    if not re.search(r"[0-9]", password):
+        return "Password must contain at least one number."
+    if password.lower() in COMMON_PASSWORDS:
+        return "Password is too common. Please choose a stronger password."
+    return None
 
 
 class RegisterView(APIView):
@@ -19,11 +36,21 @@ class RegisterView(APIView):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        if len(password) < 6:
+        if len(username) < 3:
             return Response(
-                {"error": "Password must be at least 6 characters"},
+                {"error": "Username must be at least 3 characters."},
                 status=status.HTTP_400_BAD_REQUEST,
             )
+
+        if not re.match(r"^[a-zA-Z0-9_.-]+$", username):
+            return Response(
+                {"error": "Username can only contain letters, numbers, _ . and -"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        password_error = validate_password(password)
+        if password_error:
+            return Response({"error": password_error}, status=status.HTTP_400_BAD_REQUEST)
 
         if User.objects.filter(username=username).exists():
             return Response(
