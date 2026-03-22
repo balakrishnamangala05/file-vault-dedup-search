@@ -116,6 +116,7 @@ class UploadFileView(APIView):
             stored.save()
 
         upload = FileUpload.objects.create(
+            user=request.user,
             original_name=uploaded_file.name,
             stored_file=stored
         )
@@ -144,7 +145,7 @@ class ListFilesView(APIView):
             order_by = allowed_orders.get(order, "-uploaded_at")
 
             search_mode = request.query_params.get("search_mode", "filename")
-            uploads = FileUpload.objects.select_related("stored_file").all().order_by(order_by)
+            uploads = FileUpload.objects.select_related("stored_file").filter(user=request.user).order_by(order_by)
 
             if q:
                 if search_mode == "content":
@@ -226,13 +227,14 @@ class ListStoredFilesView(APIView):
 
 class DuplicatesView(APIView):
     def get(self, request):
-        dupes = StoredFile.objects.filter(ref_count__gt=1).prefetch_related("uploads").order_by("-ref_count")
+        user_stored_ids = FileUpload.objects.filter(user=request.user).values_list("stored_file_id", flat=True)
+        dupes = StoredFile.objects.filter(id__in=user_stored_ids, ref_count__gt=1).prefetch_related("uploads").order_by("-ref_count")
         return Response(StoredFileWithUploadsSerializer(dupes, many=True).data)
 
 
 class TagView(APIView):
     def get(self, request):
-        tags = Tag.objects.all()
+        tags = Tag.objects.filter(user=request.user)
         return Response(TagSerializer(tags, many=True).data)
 
     def post(self, request):
@@ -240,14 +242,14 @@ class TagView(APIView):
         color = request.data.get("color", "#3b82f6").strip()
         if not name:
             return Response({"error": "Tag name is required"}, status=status.HTTP_400_BAD_REQUEST)
-        if Tag.objects.filter(name__iexact=name).exists():
+        if Tag.objects.filter(user=request.user, name__iexact=name).exists():
             return Response({"error": "Tag already exists"}, status=status.HTTP_400_BAD_REQUEST)
-        tag = Tag.objects.create(name=name, color=color)
+        tag = Tag.objects.create(user=request.user, name=name, color=color)
         return Response(TagSerializer(tag).data, status=status.HTTP_201_CREATED)
 
     def delete(self, request, tag_id):
         try:
-            tag = Tag.objects.get(id=tag_id)
+            tag = Tag.objects.get(id=tag_id, user=request.user)
             tag.delete()
             return Response({"message": "Tag deleted"}, status=status.HTTP_200_OK)
         except Tag.DoesNotExist:
@@ -257,9 +259,9 @@ class TagView(APIView):
 class FileTagView(APIView):
     def post(self, request, upload_id):
         try:
-            upload = FileUpload.objects.get(id=upload_id)
+            upload = FileUpload.objects.get(id=upload_id, user=request.user)
             tag_id = request.data.get("tag_id")
-            tag = Tag.objects.get(id=tag_id)
+            tag = Tag.objects.get(id=tag_id, user=request.user)
             upload.tags.add(tag)
             return Response(FileUploadSerializer(upload).data)
         except (FileUpload.DoesNotExist, Tag.DoesNotExist) as e:
@@ -267,8 +269,8 @@ class FileTagView(APIView):
 
     def delete(self, request, upload_id, tag_id):
         try:
-            upload = FileUpload.objects.get(id=upload_id)
-            tag = Tag.objects.get(id=tag_id)
+            upload = FileUpload.objects.get(id=upload_id, user=request.user)
+            tag = Tag.objects.get(id=tag_id, user=request.user)
             upload.tags.remove(tag)
             return Response({"message": "Tag removed"}, status=status.HTTP_200_OK)
         except (FileUpload.DoesNotExist, Tag.DoesNotExist) as e:
@@ -285,7 +287,7 @@ class BulkDeleteView(APIView):
         errors = []
         for upload_id in ids:
             try:
-                upload = FileUpload.objects.select_related("stored_file").get(id=upload_id)
+                upload = FileUpload.objects.select_related("stored_file").get(id=upload_id, user=request.user)
                 stored_file = upload.stored_file
                 upload.delete()
                 stored_file.ref_count -= 1
@@ -309,7 +311,7 @@ class BulkDownloadZipView(APIView):
         if not ids:
             return Response({"error": "No IDs provided"}, status=status.HTTP_400_BAD_REQUEST)
 
-        uploads = FileUpload.objects.select_related("stored_file").filter(id__in=ids)
+        uploads = FileUpload.objects.select_related("stored_file").filter(id__in=ids, user=request.user)
         if not uploads.exists():
             return Response({"error": "No matching uploads"}, status=status.HTTP_404_NOT_FOUND)
 
@@ -338,7 +340,7 @@ class BulkDownloadZipView(APIView):
 class DownloadByUploadIdView(APIView):
     def get(self, request, upload_id):
         try:
-            upload = FileUpload.objects.select_related("stored_file").get(id=upload_id)
+            upload = FileUpload.objects.select_related("stored_file").get(id=upload_id, user=request.user)
         except FileUpload.DoesNotExist:
             raise Http404("Upload not found")
 
@@ -357,11 +359,13 @@ class StatsView(APIView):
     def get(self, request):
         try:
             from django.db.models import Sum, Count
-            total_uploads = FileUpload.objects.count()
-            total_stored = StoredFile.objects.count()
+            user_uploads = FileUpload.objects.filter(user=request.user)
+            total_uploads = user_uploads.count()
+            user_stored_ids = user_uploads.values_list("stored_file_id", flat=True)
+            total_stored = StoredFile.objects.filter(id__in=user_stored_ids).count()
             duplicates_saved = max(0, total_uploads - total_stored)
-            total_bytes = StoredFile.objects.aggregate(Sum("size_bytes"))["size_bytes__sum"] or 0
-            duplicate_files = StoredFile.objects.filter(ref_count__gt=1).count()
+            total_bytes = StoredFile.objects.filter(id__in=user_stored_ids).aggregate(Sum("size_bytes"))["size_bytes__sum"] or 0
+            duplicate_files = StoredFile.objects.filter(id__in=user_stored_ids, ref_count__gt=1).count()
             return Response({
                 "total_uploads": total_uploads,
                 "total_stored_files": total_stored,
@@ -379,21 +383,21 @@ class StatsView(APIView):
 class FolderView(APIView):
     def get(self, request):
         from django.db.models import Count
-        folders = Folder.objects.annotate(file_count=Count("files")).order_by("name")
+        folders = Folder.objects.filter(user=request.user).annotate(file_count=Count("files")).order_by("name")
         return Response(FolderSerializer(folders, many=True).data)
 
     def post(self, request):
         name = request.data.get("name", "").strip()
         if not name:
             return Response({"error": "Folder name is required"}, status=status.HTTP_400_BAD_REQUEST)
-        if Folder.objects.filter(name__iexact=name).exists():
+        if Folder.objects.filter(user=request.user, name__iexact=name).exists():
             return Response({"error": "Folder already exists"}, status=status.HTTP_400_BAD_REQUEST)
-        folder = Folder.objects.create(name=name)
+        folder = Folder.objects.create(user=request.user, name=name)
         return Response(FolderSerializer(folder).data, status=status.HTTP_201_CREATED)
 
     def delete(self, request, folder_id):
         try:
-            folder = Folder.objects.get(id=folder_id)
+            folder = Folder.objects.get(id=folder_id, user=request.user)
             folder.delete()
             return Response({"message": "Folder deleted"}, status=status.HTTP_200_OK)
         except Folder.DoesNotExist:
@@ -403,12 +407,12 @@ class FolderView(APIView):
 class MoveFileView(APIView):
     def patch(self, request, upload_id):
         try:
-            upload = FileUpload.objects.get(id=upload_id)
+            upload = FileUpload.objects.get(id=upload_id, user=request.user)
             folder_id = request.data.get("folder_id")
             if folder_id is None:
                 upload.folder = None
             else:
-                upload.folder = Folder.objects.get(id=folder_id)
+                upload.folder = Folder.objects.get(id=folder_id, user=request.user)
             upload.save()
             return Response(FileUploadSerializer(upload).data)
         except FileUpload.DoesNotExist:
@@ -420,7 +424,7 @@ class MoveFileView(APIView):
 class DeleteFileUploadView(APIView):
     def delete(self, request, upload_id):
         try:
-            upload = FileUpload.objects.select_related("stored_file").get(id=upload_id)
+            upload = FileUpload.objects.select_related("stored_file").get(id=upload_id, user=request.user)
             stored_file = upload.stored_file
             
             # Delete the upload record
