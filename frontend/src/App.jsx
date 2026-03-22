@@ -349,7 +349,7 @@ function App() {
 
   const handleDownload = (uploadId) => {
     const BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:8001/api";
-    window.open(`${BASE_URL}/files/${uploadId}/download/`, "_blank");
+    window.open(`${BASE_URL}/files/${uploadId}/download/?download=1`, "_blank");
   };
 
   const handleDelete = async (uploadId) => {

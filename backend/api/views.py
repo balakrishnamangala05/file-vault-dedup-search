@@ -346,8 +346,10 @@ class DownloadByUploadIdView(APIView):
         if not os.path.exists(path):
             raise Http404("Stored file missing")
 
+        as_attachment = request.query_params.get("download", "0") != "0"
         file_handle = open(path, "rb")
-        response = FileResponse(file_handle, as_attachment=True, filename=upload.original_name)
+        mime = upload.stored_file.mime_type or "application/octet-stream"
+        response = FileResponse(file_handle, content_type=mime, as_attachment=as_attachment, filename=upload.original_name)
         return response
 
 
