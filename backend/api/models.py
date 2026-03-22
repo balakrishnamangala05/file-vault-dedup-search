@@ -1,13 +1,16 @@
+from django.conf import settings
 from django.db import models
 
 
 class Tag(models.Model):
-    name = models.CharField(max_length=50, unique=True)
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="tags", null=True)
+    name = models.CharField(max_length=50)
     color = models.CharField(max_length=7, default="#3b82f6")
 
     class Meta:
         db_table = "api_tag"
         ordering = ["name"]
+        unique_together = [("user", "name")]
 
     def __str__(self):
         return self.name
@@ -30,6 +33,7 @@ class StoredFile(models.Model):
 
 
 class Folder(models.Model):
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="folders", null=True)
     name = models.CharField(max_length=100)
     created_at = models.DateTimeField(auto_now_add=True)
 
@@ -42,6 +46,7 @@ class Folder(models.Model):
 
 
 class FileUpload(models.Model):
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="uploads", null=True)
     original_name = models.CharField(max_length=255)
     stored_file = models.ForeignKey(StoredFile, on_delete=models.CASCADE, related_name="uploads")
     tags = models.ManyToManyField(Tag, blank=True, related_name="uploads")
