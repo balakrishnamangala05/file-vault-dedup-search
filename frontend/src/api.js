@@ -298,6 +298,33 @@ export async function moveFile(uploadId, folderId) {
   return res.json();
 }
 
+export async function getShareLinks(uploadId) {
+  const res = await apiFetch(`${BASE_URL}/files/${uploadId}/share/`);
+  if (!res.ok) throw new Error(`Failed to load share links: ${res.status}`);
+  return res.json();
+}
+
+export async function createShareLink(uploadId, expiresDays = null) {
+  const res = await apiFetch(`${BASE_URL}/files/${uploadId}/share/`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(expiresDays ? { expires_days: expiresDays } : {}),
+  });
+  if (!res.ok) throw new Error(`Failed to create share link: ${res.status}`);
+  return res.json();
+}
+
+export async function revokeShareLink(uploadId, linkId) {
+  const res = await apiFetch(`${BASE_URL}/files/${uploadId}/share/${linkId}/`, { method: "DELETE" });
+  if (!res.ok) throw new Error(`Failed to revoke link: ${res.status}`);
+  return res.json();
+}
+
+export function publicDownloadUrl(token) {
+  const BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:8001/api";
+  return `${BASE_URL}/public/${token}/`;
+}
+
 export async function deleteFile(uploadId) {
   const res = await apiFetch(`${BASE_URL}/files/${uploadId}/`, {
     method: "DELETE",

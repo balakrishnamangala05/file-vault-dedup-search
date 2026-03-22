@@ -1,3 +1,4 @@
+import uuid
 from django.conf import settings
 from django.db import models
 
@@ -59,6 +60,22 @@ class FileUpload(models.Model):
 
     def __str__(self):
         return f"FileUpload({self.original_name})"
+
+
+class ShareLink(models.Model):
+    token = models.UUIDField(default=uuid.uuid4, unique=True, db_index=True, editable=False)
+    upload = models.ForeignKey(FileUpload, on_delete=models.CASCADE, related_name="share_links")
+    created_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="share_links")
+    expires_at = models.DateTimeField(null=True, blank=True)
+    is_active = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = "api_sharelink"
+        ordering = ["-created_at"]
+
+    def __str__(self):
+        return f"ShareLink({self.upload.original_name}, {self.token})"
 
 
 class UserProfile(models.Model):

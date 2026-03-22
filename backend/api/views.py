@@ -8,7 +8,7 @@ from django.http import FileResponse, Http404, HttpResponse
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
-from .models import StoredFile, FileUpload, Tag, Folder, FileIndex
+from .models import StoredFile, FileUpload, Tag, Folder, FileIndex, ShareLink
 from .serializers import FileUploadSerializer, StoredFileFlatSerializer, StoredFileWithUploadsSerializer, TagSerializer, FolderSerializer
 
 
@@ -467,3 +467,65 @@ class DeleteFileUploadView(APIView):
                 {"error": str(e)},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
+
+
+class ShareLinkView(APIView):
+    def get(self, request, upload_id):
+        try:
+            upload = FileUpload.objects.get(id=upload_id, user=request.user)
+        except FileUpload.DoesNotExist:
+            return Response({"error": "File not found"}, status=status.HTTP_404_NOT_FOUND)
+        links = ShareLink.objects.filter(upload=upload, is_active=True)
+        data = [{"id": lnk.id, "token": str(lnk.token), "expires_at": lnk.expires_at, "created_at": lnk.created_at} for lnk in links]
+        return Response(data)
+
+    def post(self, request, upload_id):
+        from django.utils import timezone
+        from datetime import timedelta
+        try:
+            upload = FileUpload.objects.get(id=upload_id, user=request.user)
+        except FileUpload.DoesNotExist:
+            return Response({"error": "File not found"}, status=status.HTTP_404_NOT_FOUND)
+        expires_days = request.data.get("expires_days")
+        expires_at = None
+        if expires_days:
+            try:
+                expires_at = timezone.now() + timedelta(days=int(expires_days))
+            except (ValueError, TypeError):
+                return Response({"error": "Invalid expires_days"}, status=status.HTTP_400_BAD_REQUEST)
+        link = ShareLink.objects.create(upload=upload, created_by=request.user, expires_at=expires_at)
+        return Response({
+            "id": link.id,
+            "token": str(link.token),
+            "expires_at": link.expires_at,
+            "created_at": link.created_at,
+        }, status=status.HTTP_201_CREATED)
+
+    def delete(self, request, upload_id, link_id):
+        try:
+            link = ShareLink.objects.get(id=link_id, upload__id=upload_id, created_by=request.user)
+            link.is_active = False
+            link.save()
+            return Response({"message": "Link revoked"})
+        except ShareLink.DoesNotExist:
+            return Response({"error": "Link not found"}, status=status.HTTP_404_NOT_FOUND)
+
+
+class PublicDownloadView(APIView):
+    permission_classes = []
+    authentication_classes = []
+
+    def get(self, request, token):
+        from django.utils import timezone
+        try:
+            link = ShareLink.objects.select_related("upload__stored_file").get(token=token, is_active=True)
+        except ShareLink.DoesNotExist:
+            raise Http404("Link not found or revoked")
+        if link.expires_at and link.expires_at < timezone.now():
+            raise Http404("This link has expired")
+        path = link.upload.stored_file.storage_path
+        if not os.path.exists(path):
+            raise Http404("File missing")
+        file_handle = open(path, "rb")
+        mime = link.upload.stored_file.mime_type or "application/octet-stream"
+        return FileResponse(file_handle, content_type=mime, as_attachment=True, filename=link.upload.original_name)
