@@ -95,6 +95,20 @@ class UploadFileView(APIView):
         if not uploaded_file:
             return Response({"error": "No file provided"}, status=status.HTTP_400_BAD_REQUEST)
 
+        from django.db.models import Sum
+        from .models import UserProfile
+        profile, _ = UserProfile.objects.get_or_create(user=request.user)
+        used_bytes = FileUpload.objects.filter(user=request.user).aggregate(
+            total=Sum("stored_file__size_bytes")
+        )["total"] or 0
+        file_size = uploaded_file.size
+        if used_bytes + file_size > profile.quota_bytes:
+            quota_mb = profile.quota_bytes // (1024 ** 2)
+            return Response(
+                {"error": f"Storage quota exceeded. Your limit is {quota_mb} MB."},
+                status=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
+            )
+
         sha256, size_bytes, storage_path = compute_sha256_and_save(uploaded_file)
 
         mime_type, _ = mimetypes.guess_type(uploaded_file.name)
@@ -359,6 +373,7 @@ class StatsView(APIView):
     def get(self, request):
         try:
             from django.db.models import Sum, Count
+            from .models import UserProfile
             user_uploads = FileUpload.objects.filter(user=request.user)
             total_uploads = user_uploads.count()
             user_stored_ids = user_uploads.values_list("stored_file_id", flat=True)
@@ -366,12 +381,15 @@ class StatsView(APIView):
             duplicates_saved = max(0, total_uploads - total_stored)
             total_bytes = StoredFile.objects.filter(id__in=user_stored_ids).aggregate(Sum("size_bytes"))["size_bytes__sum"] or 0
             duplicate_files = StoredFile.objects.filter(id__in=user_stored_ids, ref_count__gt=1).count()
+            profile, _ = UserProfile.objects.get_or_create(user=request.user)
             return Response({
                 "total_uploads": total_uploads,
                 "total_stored_files": total_stored,
                 "duplicates_saved": duplicates_saved,
                 "total_storage_bytes": total_bytes,
                 "duplicate_groups": duplicate_files,
+                "quota_bytes": profile.quota_bytes,
+                "used_bytes": total_bytes,
             }, status=status.HTTP_200_OK)
         except Exception as e:
             return Response(

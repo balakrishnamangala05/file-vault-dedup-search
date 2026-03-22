@@ -32,6 +32,8 @@ class RegisterView(APIView):
             )
 
         user = User.objects.create_user(username=username, password=password)
+        from .models import UserProfile
+        UserProfile.objects.create(user=user)
         refresh = RefreshToken.for_user(user)
 
         return Response(

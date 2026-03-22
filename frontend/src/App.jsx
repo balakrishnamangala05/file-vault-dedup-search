@@ -689,7 +689,21 @@ function App() {
               {statsLoading ? (
                 <span className="skeleton" style={{ display: "inline-block", width: 64, height: 28 }} />
               ) : (
-                formatSize(stats?.total_storage_bytes ?? 0)
+                <>
+                  {formatSize(stats?.used_bytes ?? 0)}
+                  <span style={{ fontSize: "0.75rem", color: "var(--text-muted)", fontWeight: 400 }}>
+                    {" "}/ {formatSize(stats?.quota_bytes ?? 1073741824)}
+                  </span>
+                  <div className="quota-bar-wrap">
+                    <div
+                      className="quota-bar-fill"
+                      style={{
+                        width: `${Math.min(100, ((stats?.used_bytes ?? 0) / (stats?.quota_bytes ?? 1073741824)) * 100)}%`,
+                        background: ((stats?.used_bytes ?? 0) / (stats?.quota_bytes ?? 1073741824)) > 0.9 ? "#ef4444" : "var(--accent)",
+                      }}
+                    />
+                  </div>
+                </>
               )}
             </div>
           </div>

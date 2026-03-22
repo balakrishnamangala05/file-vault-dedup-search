@@ -61,6 +61,17 @@ class FileUpload(models.Model):
         return f"FileUpload({self.original_name})"
 
 
+class UserProfile(models.Model):
+    user = models.OneToOneField(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="profile")
+    quota_bytes = models.BigIntegerField(default=1024 ** 3)  # 1 GB default
+
+    class Meta:
+        db_table = "api_userprofile"
+
+    def __str__(self):
+        return f"Profile({self.user.username})"
+
+
 class FileIndex(models.Model):
     upload = models.OneToOneField(FileUpload, on_delete=models.CASCADE, related_name="index")
     content_text = models.TextField(blank=True)
