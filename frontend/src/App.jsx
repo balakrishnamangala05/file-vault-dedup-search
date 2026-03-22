@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
-import { uploadFile, listUploads, deleteFile, getStats, getDuplicates, bulkDelete, bulkDownloadZip, login, register, logout, getTags, createTag, deleteTag, addTagToFile, removeTagFromFile, getFolders, createFolder, deleteFolder, moveFile, downloadFileBlob } from "./api";
+import { uploadFile, listUploads, deleteFile, getStats, getDuplicates, bulkDelete, bulkDownloadZip, login, register, logout, getTags, createTag, deleteTag, addTagToFile, removeTagFromFile, getFolders, createFolder, deleteFolder, moveFile, downloadFileBlob, getShareLinks, createShareLink, revokeShareLink, publicDownloadUrl } from "./api";
 import {
   FiUpload,
   FiSearch,
@@ -28,6 +28,9 @@ import {
   FiFolder,
   FiFolderPlus,
   FiMoreVertical,
+  FiShare2,
+  FiLink,
+  FiClock,
 } from "react-icons/fi";
 import "./App.css";
 
@@ -76,6 +79,10 @@ function App() {
   const [authTab, setAuthTab] = useState("login");
   const [authLoading, setAuthLoading] = useState(false);
   const [authError, setAuthError] = useState("");
+  const [shareModalFile, setShareModalFile] = useState(null);
+  const [shareLinks, setShareLinks] = useState([]);
+  const [shareLoading, setShareLoading] = useState(false);
+  const [shareExpiresDays, setShareExpiresDays] = useState("");
   const [allTags, setAllTags] = useState([]);
   const [tagDropdownOpenId, setTagDropdownOpenId] = useState(null);
   const [showTagManager, setShowTagManager] = useState(false);
@@ -447,6 +454,50 @@ function App() {
     } finally {
       setBulkWorking(false);
     }
+  };
+
+  const handleOpenShare = async (file) => {
+    setShareModalFile(file);
+    setShareLinks([]);
+    setShareLoading(true);
+    try {
+      const links = await getShareLinks(file.id);
+      setShareLinks(links);
+    } catch {
+      addToast("Failed to load share links.", "error");
+    } finally {
+      setShareLoading(false);
+    }
+  };
+
+  const handleCreateShareLink = async () => {
+    if (!shareModalFile) return;
+    setShareLoading(true);
+    try {
+      const link = await createShareLink(shareModalFile.id, shareExpiresDays ? parseInt(shareExpiresDays) : null);
+      setShareLinks((prev) => [...prev, link]);
+      setShareExpiresDays("");
+      addToast("Share link created.");
+    } catch {
+      addToast("Failed to create share link.", "error");
+    } finally {
+      setShareLoading(false);
+    }
+  };
+
+  const handleRevokeShareLink = async (linkId) => {
+    if (!shareModalFile) return;
+    try {
+      await revokeShareLink(shareModalFile.id, linkId);
+      setShareLinks((prev) => prev.filter((l) => l.id !== linkId));
+      addToast("Link revoked.");
+    } catch {
+      addToast("Failed to revoke link.", "error");
+    }
+  };
+
+  const copyToClipboard = (text) => {
+    navigator.clipboard.writeText(text).then(() => addToast("Link copied to clipboard."));
   };
 
   const TEXT_EXTS = new Set(["txt","md","js","jsx","ts","tsx","py","json","csv","html","css","yaml","yml","xml","sh","env","log"]);
@@ -1109,6 +1160,15 @@ function App() {
                         </button>
                         <button
                           type="button"
+                          className="btn btn-ghost btn-sm"
+                          onClick={() => handleOpenShare(file)}
+                          title="Share"
+                        >
+                          <FiShare2 size={14} />
+                          Share
+                        </button>
+                        <button
+                          type="button"
                           className="btn btn-success btn-sm"
                           onClick={() => handleDownload(file.id)}
                           title="Download"
@@ -1253,6 +1313,58 @@ function App() {
                   </div>
                 ))}
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Share Modal */}
+      {shareModalFile && (
+        <div className="modal-overlay" onClick={() => setShareModalFile(null)}>
+          <div className="modal-box" onClick={(e) => e.stopPropagation()}>
+            <div className="modal-header">
+              <span><FiShare2 size={16} /> Share "{shareModalFile.original_name}"</span>
+              <button className="btn btn-ghost btn-sm" onClick={() => setShareModalFile(null)}><FiX size={16} /></button>
+            </div>
+            <div className="modal-body">
+              <div className="share-create-row">
+                <select
+                  value={shareExpiresDays}
+                  onChange={(e) => setShareExpiresDays(e.target.value)}
+                  className="page-size-select"
+                >
+                  <option value="">Never expires</option>
+                  <option value="1">Expires in 1 day</option>
+                  <option value="7">Expires in 7 days</option>
+                  <option value="30">Expires in 30 days</option>
+                </select>
+                <button className="btn btn-primary btn-sm" onClick={handleCreateShareLink} disabled={shareLoading}>
+                  <FiLink size={14} /> Generate link
+                </button>
+              </div>
+              {shareLoading && <p className="share-hint">Loading…</p>}
+              {!shareLoading && shareLinks.length === 0 && (
+                <p className="share-hint">No active links. Generate one above.</p>
+              )}
+              {shareLinks.map((lnk) => (
+                <div key={lnk.id} className="share-link-row">
+                  <input
+                    readOnly
+                    value={publicDownloadUrl(lnk.token)}
+                    className="share-link-input"
+                    onFocus={(e) => e.target.select()}
+                  />
+                  <button className="btn btn-ghost btn-sm" onClick={() => copyToClipboard(publicDownloadUrl(lnk.token))} title="Copy">
+                    <FiCopy size={14} />
+                  </button>
+                  <button className="btn btn-danger btn-sm" onClick={() => handleRevokeShareLink(lnk.id)} title="Revoke">
+                    <FiX size={14} />
+                  </button>
+                  {lnk.expires_at && (
+                    <span className="share-expires"><FiClock size={12} /> Expires {new Date(lnk.expires_at).toLocaleDateString()}</span>
+                  )}
+                </div>
+              ))}
             </div>
           </div>
         </div>
