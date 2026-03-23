@@ -8,7 +8,7 @@ from django.http import FileResponse, Http404, HttpResponse
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
-from .models import StoredFile, FileUpload, Tag, Folder, FileIndex, ShareLink
+from .models import StoredFile, FileUpload, Tag, Folder, FileIndex, ShareLink, FileComment
 from .serializers import FileUploadSerializer, StoredFileFlatSerializer, StoredFileWithUploadsSerializer, TagSerializer, FolderSerializer
 
 
@@ -548,3 +548,48 @@ class PublicDownloadView(APIView):
         file_handle = open(path, "rb")
         mime = link.upload.stored_file.mime_type or "application/octet-stream"
         return FileResponse(file_handle, content_type=mime, as_attachment=True, filename=link.upload.original_name)
+
+
+class FileCommentView(APIView):
+    def get(self, request, upload_id):
+        try:
+            upload = FileUpload.objects.get(id=upload_id, user=request.user, deleted_at__isnull=True)
+        except FileUpload.DoesNotExist:
+            return Response({"error": "File not found"}, status=status.HTTP_404_NOT_FOUND)
+        comments = FileComment.objects.filter(upload=upload).select_related("user")
+        data = [
+            {
+                "id": c.id,
+                "body": c.body,
+                "author": c.user.username,
+                "is_mine": c.user == request.user,
+                "created_at": c.created_at,
+            }
+            for c in comments
+        ]
+        return Response(data)
+
+    def post(self, request, upload_id):
+        try:
+            upload = FileUpload.objects.get(id=upload_id, user=request.user, deleted_at__isnull=True)
+        except FileUpload.DoesNotExist:
+            return Response({"error": "File not found"}, status=status.HTTP_404_NOT_FOUND)
+        body = request.data.get("body", "").strip()
+        if not body:
+            return Response({"error": "Comment cannot be empty"}, status=status.HTTP_400_BAD_REQUEST)
+        comment = FileComment.objects.create(upload=upload, user=request.user, body=body)
+        return Response({
+            "id": comment.id,
+            "body": comment.body,
+            "author": request.user.username,
+            "is_mine": True,
+            "created_at": comment.created_at,
+        }, status=status.HTTP_201_CREATED)
+
+    def delete(self, request, upload_id, comment_id):
+        try:
+            comment = FileComment.objects.get(id=comment_id, upload__id=upload_id, user=request.user)
+            comment.delete()
+            return Response({"message": "Comment deleted"})
+        except FileComment.DoesNotExist:
+            return Response({"error": "Comment not found"}, status=status.HTTP_404_NOT_FOUND)

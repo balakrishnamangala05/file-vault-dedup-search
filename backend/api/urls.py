@@ -8,6 +8,7 @@ from .views import (
     TagView, FileTagView, FolderView, MoveFileView,
     ShareLinkView, PublicDownloadView,
     TrashView, RestoreFileView, PermanentDeleteView,
+    FileCommentView,
 )
 
 urlpatterns = [
@@ -47,4 +48,8 @@ urlpatterns = [
     path("trash/", TrashView.as_view(), name="trash"),
     path("trash/<int:upload_id>/restore/", RestoreFileView.as_view(), name="restore-file"),
     path("trash/<int:upload_id>/", PermanentDeleteView.as_view(), name="permanent-delete"),
+
+    # comments
+    path("files/<int:upload_id>/comments/", FileCommentView.as_view(), name="file-comments"),
+    path("files/<int:upload_id>/comments/<int:comment_id>/", FileCommentView.as_view(), name="file-comment-detail"),
 ]
