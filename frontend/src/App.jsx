@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
-import { uploadFile, listUploads, deleteFile, getStats, getDuplicates, bulkDelete, bulkDownloadZip, login, register, logout, getTags, createTag, deleteTag, addTagToFile, removeTagFromFile, getFolders, createFolder, deleteFolder, moveFile, downloadFileBlob, getShareLinks, createShareLink, revokeShareLink, publicDownloadUrl } from "./api";
+import { uploadFile, listUploads, deleteFile, getStats, getDuplicates, bulkDelete, bulkDownloadZip, login, register, logout, getTags, createTag, deleteTag, addTagToFile, removeTagFromFile, getFolders, createFolder, deleteFolder, moveFile, downloadFileBlob, getShareLinks, createShareLink, revokeShareLink, publicDownloadUrl, getTrash, restoreFile, permanentDelete } from "./api";
 import {
   FiUpload,
   FiSearch,
@@ -83,6 +83,8 @@ function App() {
   const [shareLinks, setShareLinks] = useState([]);
   const [shareLoading, setShareLoading] = useState(false);
   const [shareExpiresDays, setShareExpiresDays] = useState("");
+  const [trashFiles, setTrashFiles] = useState([]);
+  const [trashLoading, setTrashLoading] = useState(false);
   const [allTags, setAllTags] = useState([]);
   const [tagDropdownOpenId, setTagDropdownOpenId] = useState(null);
   const [showTagManager, setShowTagManager] = useState(false);
@@ -246,6 +248,19 @@ function App() {
     }
   }, []);
 
+  const loadTrash = useCallback(async () => {
+    if (!isAuthenticated) return;
+    try {
+      setTrashLoading(true);
+      const data = await getTrash();
+      setTrashFiles(data);
+    } catch (err) {
+      console.error("Trash error:", err);
+    } finally {
+      setTrashLoading(false);
+    }
+  }, [isAuthenticated]);
+
   const loadDuplicates = useCallback(async () => {
     try {
       setDupLoading(true);
@@ -295,7 +310,8 @@ function App() {
   useEffect(() => {
     if (!isAuthenticated) return;
     if (activeTab === "duplicates") loadDuplicates();
-  }, [activeTab, loadDuplicates, isAuthenticated]);
+    if (activeTab === "trash") loadTrash();
+  }, [activeTab, loadDuplicates, loadTrash, isAuthenticated]);
 
   useEffect(() => {
     setPage(1);
@@ -453,6 +469,29 @@ function App() {
       addToast("ZIP download failed: " + err.message, "error");
     } finally {
       setBulkWorking(false);
+    }
+  };
+
+  const handleRestore = async (uploadId) => {
+    try {
+      await restoreFile(uploadId);
+      setTrashFiles((prev) => prev.filter((f) => f.id !== uploadId));
+      addToast("File restored.");
+      await loadStats();
+    } catch {
+      addToast("Failed to restore file.", "error");
+    }
+  };
+
+  const handlePermanentDelete = async (uploadId, name) => {
+    if (!window.confirm(`Permanently delete "${name}"? This cannot be undone.`)) return;
+    try {
+      await permanentDelete(uploadId);
+      setTrashFiles((prev) => prev.filter((f) => f.id !== uploadId));
+      addToast("File permanently deleted.");
+      await loadStats();
+    } catch {
+      addToast("Failed to permanently delete file.", "error");
     }
   };
 
@@ -780,6 +819,15 @@ function App() {
               <span className="tab-badge">{stats.duplicate_groups}</span>
             )}
           </button>
+          <button
+            className={`tab-btn${activeTab === "trash" ? " active" : ""}`}
+            onClick={() => setActiveTab("trash")}
+          >
+            <FiTrash2 size={15} /> Trash
+            {trashFiles.length > 0 && (
+              <span className="tab-badge">{trashFiles.length}</span>
+            )}
+          </button>
         </div>
 
         {/* Toolbar */}
@@ -1002,6 +1050,75 @@ function App() {
                         </tr>
                       ))}
                     </>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
+        )}
+
+        {/* Trash Table */}
+        {activeTab === "trash" && (
+          <div className="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Filename</th>
+                  <th>Size</th>
+                  <th>Deleted</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {trashLoading ? (
+                  Array.from({ length: 3 }).map((_, i) => (
+                    <tr key={`tskel-${i}`} className="skeleton-row">
+                      <td><span className="skeleton" style={{ width: "60%" }} /></td>
+                      <td><span className="skeleton" style={{ width: 60 }} /></td>
+                      <td><span className="skeleton" style={{ width: 120 }} /></td>
+                      <td><span className="skeleton" style={{ width: 140 }} /></td>
+                    </tr>
+                  ))
+                ) : trashFiles.length === 0 ? (
+                  <tr>
+                    <td colSpan="4">
+                      <div className="empty-state">
+                        <div className="empty-icon"><FiCheckCircle /></div>
+                        <p>Trash is empty.</p>
+                        <span className="hint">Deleted files will appear here for 30 days.</span>
+                      </div>
+                    </td>
+                  </tr>
+                ) : (
+                  trashFiles.map((file) => (
+                    <tr key={file.id} className="trash-row">
+                      <td>
+                        <span style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+                          {getCategoryIcon(file.stored_file?.file_category)}
+                          {file.original_name}
+                        </span>
+                      </td>
+                      <td>{formatSize(file.stored_file?.size_bytes ?? 0)}</td>
+                      <td style={{ color: "var(--text-muted)", fontSize: "0.85rem" }}>
+                        {formatDate(file.deleted_at)}
+                      </td>
+                      <td>
+                        <div className="actions-cell">
+                          <button
+                            className="btn btn-success btn-sm"
+                            onClick={() => handleRestore(file.id)}
+                          >
+                            <FiCheckCircle size={14} /> Restore
+                          </button>
+                          <button
+                            className="btn btn-danger btn-sm"
+                            onClick={() => handlePermanentDelete(file.id, file.original_name)}
+                          >
+                            <FiTrash2 size={14} /> Delete forever
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
                   ))
                 )}
               </tbody>
