@@ -53,6 +53,7 @@ class FileUpload(models.Model):
     tags = models.ManyToManyField(Tag, blank=True, related_name="uploads")
     folder = models.ForeignKey(Folder, null=True, blank=True, on_delete=models.SET_NULL, related_name="files")
     uploaded_at = models.DateTimeField(auto_now_add=True)
+    deleted_at = models.DateTimeField(null=True, blank=True, db_index=True)
 
     class Meta:
         db_table = "api_fileupload"
