@@ -7,6 +7,7 @@ from .views import (
     DuplicatesView, BulkDeleteView, BulkDownloadZipView,
     TagView, FileTagView, FolderView, MoveFileView,
     ShareLinkView, PublicDownloadView,
+    TrashView, RestoreFileView, PermanentDeleteView,
 )
 
 urlpatterns = [
@@ -41,4 +42,9 @@ urlpatterns = [
     path("files/<int:upload_id>/share/", ShareLinkView.as_view(), name="share-links"),
     path("files/<int:upload_id>/share/<int:link_id>/", ShareLinkView.as_view(), name="share-link-detail"),
     path("public/<uuid:token>/", PublicDownloadView.as_view(), name="public-download"),
+
+    # trash
+    path("trash/", TrashView.as_view(), name="trash"),
+    path("trash/<int:upload_id>/restore/", RestoreFileView.as_view(), name="restore-file"),
+    path("trash/<int:upload_id>/", PermanentDeleteView.as_view(), name="permanent-delete"),
 ]

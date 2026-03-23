@@ -159,7 +159,7 @@ class ListFilesView(APIView):
             order_by = allowed_orders.get(order, "-uploaded_at")
 
             search_mode = request.query_params.get("search_mode", "filename")
-            uploads = FileUpload.objects.select_related("stored_file").filter(user=request.user).order_by(order_by)
+            uploads = FileUpload.objects.select_related("stored_file").filter(user=request.user, deleted_at__isnull=True).order_by(order_by)
 
             if q:
                 if search_mode == "content":
@@ -297,19 +297,14 @@ class BulkDeleteView(APIView):
         if not ids:
             return Response({"error": "No IDs provided"}, status=status.HTTP_400_BAD_REQUEST)
 
+        from django.utils import timezone
         deleted = 0
         errors = []
         for upload_id in ids:
             try:
-                upload = FileUpload.objects.select_related("stored_file").get(id=upload_id, user=request.user)
-                stored_file = upload.stored_file
-                upload.delete()
-                stored_file.ref_count -= 1
-                stored_file.save()
-                if stored_file.ref_count <= 0:
-                    if os.path.exists(stored_file.storage_path):
-                        os.remove(stored_file.storage_path)
-                    stored_file.delete()
+                upload = FileUpload.objects.get(id=upload_id, user=request.user, deleted_at__isnull=True)
+                upload.deleted_at = timezone.now()
+                upload.save()
                 deleted += 1
             except FileUpload.DoesNotExist:
                 errors.append({"id": upload_id, "error": "Not found"})
@@ -441,32 +436,56 @@ class MoveFileView(APIView):
 
 class DeleteFileUploadView(APIView):
     def delete(self, request, upload_id):
+        """Soft-delete: move to trash."""
         try:
-            upload = FileUpload.objects.select_related("stored_file").get(id=upload_id, user=request.user)
-            stored_file = upload.stored_file
-            
-            # Delete the upload record
-            upload.delete()
-            
-            # Decrement reference count
-            stored_file.ref_count -= 1
-            stored_file.save()
-            
-            # If no more references, delete the stored file and physical file
-            if stored_file.ref_count <= 0:
-                storage_path = stored_file.storage_path
-                if os.path.exists(storage_path):
-                    os.remove(storage_path)
-                stored_file.delete()
-            
-            return Response({"message": "File deleted successfully"}, status=status.HTTP_200_OK)
+            from django.utils import timezone
+            upload = FileUpload.objects.get(id=upload_id, user=request.user, deleted_at__isnull=True)
+            upload.deleted_at = timezone.now()
+            upload.save()
+            return Response({"message": "File moved to trash"}, status=status.HTTP_200_OK)
         except FileUpload.DoesNotExist:
             return Response({"error": "Upload not found"}, status=status.HTTP_404_NOT_FOUND)
-        except Exception as e:
-            return Response(
-                {"error": str(e)},
-                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+
+
+class TrashView(APIView):
+    def get(self, request):
+        """List all trashed files for the current user."""
+        uploads = FileUpload.objects.select_related("stored_file").filter(
+            user=request.user, deleted_at__isnull=False
+        ).order_by("-deleted_at")
+        return Response(FileUploadSerializer(uploads, many=True).data)
+
+
+class RestoreFileView(APIView):
+    def patch(self, request, upload_id):
+        """Restore a trashed file."""
+        try:
+            upload = FileUpload.objects.get(id=upload_id, user=request.user, deleted_at__isnull=False)
+            upload.deleted_at = None
+            upload.save()
+            return Response({"message": "File restored"}, status=status.HTTP_200_OK)
+        except FileUpload.DoesNotExist:
+            return Response({"error": "File not found in trash"}, status=status.HTTP_404_NOT_FOUND)
+
+
+class PermanentDeleteView(APIView):
+    def delete(self, request, upload_id):
+        """Permanently delete a trashed file from DB and disk."""
+        try:
+            upload = FileUpload.objects.select_related("stored_file").get(
+                id=upload_id, user=request.user, deleted_at__isnull=False
             )
+            stored_file = upload.stored_file
+            upload.delete()
+            stored_file.ref_count -= 1
+            stored_file.save()
+            if stored_file.ref_count <= 0:
+                if os.path.exists(stored_file.storage_path):
+                    os.remove(stored_file.storage_path)
+                stored_file.delete()
+            return Response({"message": "File permanently deleted"}, status=status.HTTP_200_OK)
+        except FileUpload.DoesNotExist:
+            return Response({"error": "File not found in trash"}, status=status.HTTP_404_NOT_FOUND)
 
 
 class ShareLinkView(APIView):
