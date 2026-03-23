@@ -209,6 +209,24 @@ export async function bulkDownloadZip(ids) {
   URL.revokeObjectURL(url);
 }
 
+export async function getTrash() {
+  const res = await apiFetch(`${BASE_URL}/trash/`);
+  if (!res.ok) throw new Error(`Failed to load trash: ${res.status}`);
+  return res.json();
+}
+
+export async function restoreFile(uploadId) {
+  const res = await apiFetch(`${BASE_URL}/trash/${uploadId}/restore/`, { method: "PATCH" });
+  if (!res.ok) throw new Error(`Failed to restore file: ${res.status}`);
+  return res.json();
+}
+
+export async function permanentDelete(uploadId) {
+  const res = await apiFetch(`${BASE_URL}/trash/${uploadId}/`, { method: "DELETE" });
+  if (!res.ok) throw new Error(`Failed to delete file: ${res.status}`);
+  return res.json();
+}
+
 export async function getDuplicates() {
   const res = await apiFetch(`${BASE_URL}/duplicates/`);
   if (!res.ok) throw new Error(`Failed to load duplicates: ${res.status}`);
