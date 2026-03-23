@@ -63,6 +63,20 @@ class FileUpload(models.Model):
         return f"FileUpload({self.original_name})"
 
 
+class FileComment(models.Model):
+    upload = models.ForeignKey(FileUpload, on_delete=models.CASCADE, related_name="comments")
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="comments")
+    body = models.TextField()
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = "api_filecomment"
+        ordering = ["created_at"]
+
+    def __str__(self):
+        return f"Comment by {self.user.username} on {self.upload.original_name}"
+
+
 class ShareLink(models.Model):
     token = models.UUIDField(default=uuid.uuid4, unique=True, db_index=True, editable=False)
     upload = models.ForeignKey(FileUpload, on_delete=models.CASCADE, related_name="share_links")
