@@ -316,6 +316,31 @@ export async function moveFile(uploadId, folderId) {
   return res.json();
 }
 
+export async function getComments(uploadId) {
+  const res = await apiFetch(`${BASE_URL}/files/${uploadId}/comments/`);
+  if (!res.ok) throw new Error(`Failed to load comments: ${res.status}`);
+  return res.json();
+}
+
+export async function addComment(uploadId, body) {
+  const res = await apiFetch(`${BASE_URL}/files/${uploadId}/comments/`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ body }),
+  });
+  if (!res.ok) {
+    const data = await res.json().catch(() => ({}));
+    throw new Error(data.error || `Failed to add comment: ${res.status}`);
+  }
+  return res.json();
+}
+
+export async function deleteComment(uploadId, commentId) {
+  const res = await apiFetch(`${BASE_URL}/files/${uploadId}/comments/${commentId}/`, { method: "DELETE" });
+  if (!res.ok) throw new Error(`Failed to delete comment: ${res.status}`);
+  return res.json();
+}
+
 export async function getShareLinks(uploadId) {
   const res = await apiFetch(`${BASE_URL}/files/${uploadId}/share/`);
   if (!res.ok) throw new Error(`Failed to load share links: ${res.status}`);
