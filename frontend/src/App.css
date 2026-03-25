@@ -882,6 +882,68 @@ body {
   padding: 0.5rem 0;
 }
 
+/* ── Comments ──────────────────────────────────────────── */
+.comments-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+  max-height: 280px;
+  overflow-y: auto;
+}
+.comment-row {
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 0.6rem 0.75rem;
+}
+.comment-meta {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 0.3rem;
+}
+.comment-author {
+  font-weight: 600;
+  font-size: 0.82rem;
+}
+.comment-date {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  flex: 1;
+}
+.comment-delete {
+  padding: 2px 6px;
+  opacity: 0.6;
+}
+.comment-delete:hover { opacity: 1; }
+.comment-body {
+  font-size: 0.87rem;
+  line-height: 1.5;
+  margin: 0;
+  white-space: pre-wrap;
+}
+.comment-input-row {
+  display: flex;
+  gap: 0.5rem;
+  align-items: flex-start;
+}
+.comment-textarea {
+  flex: 1;
+  resize: vertical;
+  min-height: 56px;
+  padding: 0.5rem 0.75rem;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--bg);
+  color: var(--text);
+  font-size: 0.875rem;
+  font-family: inherit;
+}
+.comment-textarea:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+
 /* ── Tag Chips ────────────────────────────────────────── */
 .tag-chip {
   display: inline-flex;

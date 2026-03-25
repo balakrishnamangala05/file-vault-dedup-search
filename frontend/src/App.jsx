@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
-import { uploadFile, listUploads, deleteFile, getStats, getDuplicates, bulkDelete, bulkDownloadZip, login, register, logout, getTags, createTag, deleteTag, addTagToFile, removeTagFromFile, getFolders, createFolder, deleteFolder, moveFile, downloadFileBlob, getShareLinks, createShareLink, revokeShareLink, publicDownloadUrl, getTrash, restoreFile, permanentDelete } from "./api";
+import { uploadFile, listUploads, deleteFile, getStats, getDuplicates, bulkDelete, bulkDownloadZip, login, register, logout, getTags, createTag, deleteTag, addTagToFile, removeTagFromFile, getFolders, createFolder, deleteFolder, moveFile, downloadFileBlob, getShareLinks, createShareLink, revokeShareLink, publicDownloadUrl, getTrash, restoreFile, permanentDelete, getComments, addComment, deleteComment } from "./api";
 import {
   FiUpload,
   FiSearch,
@@ -85,6 +85,10 @@ function App() {
   const [shareExpiresDays, setShareExpiresDays] = useState("");
   const [trashFiles, setTrashFiles] = useState([]);
   const [trashLoading, setTrashLoading] = useState(false);
+  const [commentModalFile, setCommentModalFile] = useState(null);
+  const [comments, setComments] = useState([]);
+  const [commentLoading, setCommentLoading] = useState(false);
+  const [commentBody, setCommentBody] = useState("");
   const [allTags, setAllTags] = useState([]);
   const [tagDropdownOpenId, setTagDropdownOpenId] = useState(null);
   const [showTagManager, setShowTagManager] = useState(false);
@@ -492,6 +496,45 @@ function App() {
       await loadStats();
     } catch {
       addToast("Failed to permanently delete file.", "error");
+    }
+  };
+
+  const handleOpenComments = async (file) => {
+    setCommentModalFile(file);
+    setComments([]);
+    setCommentBody("");
+    setCommentLoading(true);
+    try {
+      const data = await getComments(file.id);
+      setComments(data);
+    } catch {
+      addToast("Failed to load comments.", "error");
+    } finally {
+      setCommentLoading(false);
+    }
+  };
+
+  const handleAddComment = async () => {
+    if (!commentModalFile || !commentBody.trim()) return;
+    setCommentLoading(true);
+    try {
+      const c = await addComment(commentModalFile.id, commentBody.trim());
+      setComments((prev) => [...prev, c]);
+      setCommentBody("");
+    } catch (err) {
+      addToast(err.message, "error");
+    } finally {
+      setCommentLoading(false);
+    }
+  };
+
+  const handleDeleteComment = async (commentId) => {
+    if (!commentModalFile) return;
+    try {
+      await deleteComment(commentModalFile.id, commentId);
+      setComments((prev) => prev.filter((c) => c.id !== commentId));
+    } catch {
+      addToast("Failed to delete comment.", "error");
     }
   };
 
@@ -1278,6 +1321,15 @@ function App() {
                         <button
                           type="button"
                           className="btn btn-ghost btn-sm"
+                          onClick={() => handleOpenComments(file)}
+                          title="Notes"
+                        >
+                          <FiFileText size={14} />
+                          Notes
+                        </button>
+                        <button
+                          type="button"
+                          className="btn btn-ghost btn-sm"
                           onClick={() => handleOpenShare(file)}
                           title="Share"
                         >
@@ -1430,6 +1482,54 @@ function App() {
                   </div>
                 ))}
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Comments Modal */}
+      {commentModalFile && (
+        <div className="modal-overlay" onClick={() => setCommentModalFile(null)}>
+          <div className="modal-box" onClick={(e) => e.stopPropagation()}>
+            <div className="modal-header">
+              <span><FiFileText size={16} /> Notes — "{commentModalFile.original_name}"</span>
+              <button className="btn btn-ghost btn-sm" onClick={() => setCommentModalFile(null)}><FiX size={16} /></button>
+            </div>
+            <div className="modal-body">
+              <div className="comments-list">
+                {commentLoading && comments.length === 0 && <p className="share-hint">Loading…</p>}
+                {!commentLoading && comments.length === 0 && (
+                  <p className="share-hint">No notes yet. Add one below.</p>
+                )}
+                {comments.map((c) => (
+                  <div key={c.id} className="comment-row">
+                    <div className="comment-meta">
+                      <span className="comment-author">{c.author}</span>
+                      <span className="comment-date">{formatDate(c.created_at)}</span>
+                      {c.is_mine && (
+                        <button className="btn btn-ghost btn-sm comment-delete" onClick={() => handleDeleteComment(c.id)} title="Delete">
+                          <FiTrash2 size={13} />
+                        </button>
+                      )}
+                    </div>
+                    <p className="comment-body">{c.body}</p>
+                  </div>
+                ))}
+              </div>
+              <div className="comment-input-row">
+                <textarea
+                  className="comment-textarea"
+                  placeholder="Add a note…"
+                  value={commentBody}
+                  onChange={(e) => setCommentBody(e.target.value)}
+                  onKeyDown={(e) => { if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) handleAddComment(); }}
+                  rows={2}
+                />
+                <button className="btn btn-primary btn-sm" onClick={handleAddComment} disabled={commentLoading || !commentBody.trim()}>
+                  <FiPlus size={14} /> Add
+                </button>
+              </div>
+              <span style={{ fontSize: "0.72rem", color: "var(--text-muted)" }}>Ctrl+Enter to submit</span>
             </div>
           </div>
         </div>
